@@ -12,7 +12,20 @@ security = HTTPBearer()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    Base.metadata.create_all(bind=engine)
+    # Создание таблиц лучше делать через миграции Alembic
+    # Раскомментируйте следующую строку только для разработки
+    # Base.metadata.create_all(bind=engine)
+    try:
+        # Проверяем подключение к БД
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            conn.commit()
+        print("✓ Database connection successful")
+    except Exception as e:
+        print(f"⚠ Warning: Could not connect to database: {e}")
+        print("  Make sure PostgreSQL is running and DATABASE_URL is correct")
+        print("  The server will start, but database operations will fail")
     yield
     # Shutdown
     pass
