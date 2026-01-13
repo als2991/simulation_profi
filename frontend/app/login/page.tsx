@@ -39,12 +39,25 @@ export default function LoginPage() {
         toast.success('Вход выполнен успешно')
         router.push('/dashboard')
       } else {
+        // Регистрация
         await register(data.email, data.password)
-        toast.success('Регистрация успешна. Войдите в систему')
-        setIsLogin(true)
+        toast.success('Регистрация успешна. Выполняется вход...')
+        
+        // Автоматический вход после регистрации
+        try {
+          const response = await login(data.email, data.password)
+          setAuth(response.access_token)
+          toast.success('Добро пожаловать!')
+          router.push('/dashboard')
+        } catch (loginError: any) {
+          // Если автоматический вход не удался, переключаем на форму входа
+          toast.error('Регистрация успешна, но вход не удался. Пожалуйста, войдите вручную')
+          setIsLogin(true)
+        }
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Ошибка при входе')
+      const errorMessage = error.response?.data?.detail || 'Ошибка при регистрации'
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
