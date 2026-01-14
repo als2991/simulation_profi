@@ -39,8 +39,8 @@ export default function DashboardPage() {
   const loadData = async () => {
     try {
       const [professionsData, progressData] = await Promise.all([
-        getProfessions(token!),
-        getUserProgress(token!),
+        getProfessions(),
+        getUserProgress(),
       ])
       setProfessions(professionsData)
       setProgress(progressData)

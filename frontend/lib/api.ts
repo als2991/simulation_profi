@@ -9,6 +9,20 @@ const api = axios.create({
   },
 })
 
+// Интерцептор для добавления токена к запросам
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
 // Auth
 export const login = async (email: string, password: string) => {
   const response = await api.post('/api/auth/login', { email, password })
@@ -21,33 +35,25 @@ export const register = async (email: string, password: string) => {
 }
 
 // Professions
-export const getProfessions = async (token: string) => {
-  const response = await api.get('/api/professions/', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getProfessions = async () => {
+  const response = await api.get('/api/professions/')
   return response.data
 }
 
-export const getProfession = async (id: number, token: string) => {
-  const response = await api.get(`/api/professions/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getProfession = async (id: number) => {
+  const response = await api.get(`/api/professions/${id}`)
   return response.data
 }
 
-export const getProfessionProgress = async (professionId: number, token: string) => {
-  const response = await api.get(`/api/professions/${professionId}/progress`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getProfessionProgress = async (professionId: number) => {
+  const response = await api.get(`/api/professions/${professionId}/progress`)
   return response.data
 }
 
 // Tasks
-export const getCurrentTask = async (professionId: number, token: string) => {
+export const getCurrentTask = async (professionId: number) => {
   try {
-    const response = await api.get(`/api/tasks/profession/${professionId}/current`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const response = await api.get(`/api/tasks/profession/${professionId}/current`)
     return response.data
   } catch (error: any) {
     if (error.response?.status === 404) {
@@ -57,66 +63,47 @@ export const getCurrentTask = async (professionId: number, token: string) => {
   }
 }
 
-export const generateTaskContent = async (taskId: number, token: string) => {
-  const response = await api.post(`/api/tasks/${taskId}/generate`, {}, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const generateTaskContent = async (taskId: number) => {
+  const response = await api.post(`/api/tasks/${taskId}/generate`)
   return response.data
 }
 
-export const submitTaskAnswer = async (taskId: number, answer: string, token: string) => {
-  const response = await api.post(
-    `/api/tasks/${taskId}/submit`,
-    { answer },
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  )
+export const submitTaskAnswer = async (taskId: number, answer: string) => {
+  const response = await api.post(`/api/tasks/${taskId}/submit`, { answer })
   return response.data
 }
 
-export const getFinalReport = async (professionId: number, token: string) => {
-  const response = await api.get(`/api/tasks/profession/${professionId}/report`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getFinalReport = async (professionId: number) => {
+  const response = await api.get(`/api/tasks/profession/${professionId}/report`)
   return response.data
 }
 
 // User
-export const getUserProgress = async (token: string) => {
-  const response = await api.get('/api/users/progress', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getUserProgress = async () => {
+  const response = await api.get('/api/users/progress')
   return response.data
 }
 
 // Payments
-export const getPackages = async (token: string) => {
-  const response = await api.get('/api/payments/packages', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getPackages = async () => {
+  const response = await api.get('/api/payments/packages')
   return response.data
 }
 
 export const createPayment = async (
   professionId: number | null,
   packageId: number | null,
-  promocode: string | null,
-  token: string
+  promocode: string | null
 ) => {
-  const response = await api.post(
-    '/api/payments/create',
-    { profession_id: professionId, package_id: packageId, promocode },
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  )
+  const response = await api.post('/api/payments/create', {
+    profession_id: professionId,
+    package_id: packageId,
+    promocode,
+  })
   return response.data
 }
 
-export const getPaymentHistory = async (token: string) => {
-  const response = await api.get('/api/payments/history', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+export const getPaymentHistory = async () => {
+  const response = await api.get('/api/payments/history')
   return response.data
 }

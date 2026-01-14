@@ -55,15 +55,15 @@ export default function ProfessionPage() {
   const loadData = async () => {
     try {
       const [professionProgress, currentTaskData] = await Promise.all([
-        getProfessionProgress(professionId, token!),
-        getCurrentTask(professionId, token!),
+        getProfessionProgress(professionId),
+        getCurrentTask(professionId),
       ])
 
       setProgress(professionProgress)
 
       if (professionProgress.status === 'completed') {
         // Показываем финальный отчёт
-        const report = await getFinalReport(professionId, token!)
+        const report = await getFinalReport(professionId)
         setResult(report)
         setShowResult(true)
         setIsLoading(false)
@@ -73,7 +73,7 @@ export default function ProfessionPage() {
       if (currentTaskData) {
         setTask(currentTaskData)
         // Генерируем конкретное задание
-        const generated = await generateTaskContent(currentTaskData.id, token!)
+        const generated = await generateTaskContent(currentTaskData.id)
         setTaskDescription(generated.task_description)
         setTimeLeft(currentTaskData.time_limit_minutes * 60)
       }
@@ -94,7 +94,7 @@ export default function ProfessionPage() {
 
     setIsSubmitting(true)
     try {
-      const result = await submitTaskAnswer(task.id, answer, token!)
+      const result = await submitTaskAnswer(task.id, answer)
       setResult(result)
       setShowResult(true)
       toast.success('Ответ отправлен!')
