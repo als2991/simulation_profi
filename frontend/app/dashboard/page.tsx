@@ -32,9 +32,10 @@ export default function DashboardPage() {
       router.push('/login')
       return
     }
-
+    
+    console.log('Loading data with token:', token)
     loadData()
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, token])
 
   const loadData = async () => {
     try {
