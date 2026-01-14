@@ -49,17 +49,26 @@ async def get_current_user(
     
     try:
         token = credentials.credentials
+        print(f"Received token: {token[:20]}...")
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        print(f"Decoded payload: {payload}")
         user_id: int = payload.get("sub")
         if user_id is None:
+            print("No user_id in payload")
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT Error: {e}")
+        raise credentials_exception
+    except Exception as e:
+        print(f"Unexpected error: {e}")
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
+        print(f"User not found: {user_id}")
         raise credentials_exception
     
+    print(f"User authenticated: {user.email}")
     return user
 
 
