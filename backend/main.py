@@ -2,9 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from contextlib import asynccontextmanager
+import logging
 
 from app.database import engine, Base
 from app.routers import auth, professions, tasks, admin, payments, users
+from app.config import settings
+
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -12,6 +21,15 @@ security = HTTPBearer()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    logger.info("Starting application...")
+    
+    # Валидация критических переменных окружения
+    if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "":
+        logger.warning("⚠ OPENAI_API_KEY is not set! AI features will not work.")
+    
+    if settings.SECRET_KEY == "your-secret-key-change-in-production":
+        logger.warning("⚠ SECRET_KEY is using default value! Change it in production!")
+    
     # Создание таблиц лучше делать через миграции Alembic
     # Раскомментируйте следующую строку только для разработки
     # Base.metadata.create_all(bind=engine)
@@ -21,14 +39,15 @@ async def lifespan(app: FastAPI):
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
             conn.commit()
-        print("✓ Database connection successful")
+        logger.info("✓ Database connection successful")
     except Exception as e:
-        print(f"⚠ Warning: Could not connect to database: {e}")
-        print("  Make sure PostgreSQL is running and DATABASE_URL is correct")
-        print("  The server will start, but database operations will fail")
+        logger.error(f"⚠ Warning: Could not connect to database: {e}")
+        logger.error("  Make sure PostgreSQL is running and DATABASE_URL is correct")
+        logger.error("  The server will start, but database operations will fail")
+    
     yield
     # Shutdown
-    pass
+    logger.info("Shutting down application...")
 
 
 app = FastAPI(

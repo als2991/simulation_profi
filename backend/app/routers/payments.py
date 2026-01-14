@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
+import logging
 from app.database import get_db
 from app.models import User, Payment, Package, Profession, Promocode, UserProgress
 from app.schemas import PaymentCreate, PaymentResponse, PackageResponse
 from app.auth import get_current_active_user
 from app.payments.yukassa import yukassa_client
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -188,7 +191,7 @@ async def yukassa_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": "ok"}
     except Exception as e:
         # Логируем ошибку, но возвращаем 200, чтобы ЮKassa не повторял запрос
-        print(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 

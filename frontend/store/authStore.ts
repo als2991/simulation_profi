@@ -17,9 +17,13 @@ const saveToken = (token: string) => {
     sessionStorage.setItem('auth_token', token)
     // Также сохраняем в cookie как fallback
     document.cookie = `auth_token=${token}; path=/; max-age=${30 * 60}; SameSite=Lax`
-    console.log('Token saved successfully')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Token saved successfully')
+    }
   } catch (error) {
-    console.error('Failed to save token:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to save token:', error)
+    }
   }
 }
 
@@ -42,7 +46,9 @@ const getToken = (): string | null => {
       if (name === 'auth_token') return value
     }
   } catch (error) {
-    console.error('Failed to get token:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to get token:', error)
+    }
   }
   
   return null
@@ -56,7 +62,9 @@ const removeToken = () => {
     sessionStorage.removeItem('auth_token')
     document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
   } catch (error) {
-    console.error('Failed to remove token:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to remove token:', error)
+    }
   }
 }
 
@@ -67,7 +75,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   initAuth: () => {
     const storedToken = getToken()
     if (storedToken) {
-      console.log('Token loaded from storage')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Token loaded from storage')
+      }
       set({ token: storedToken, isAuthenticated: true })
     }
   },

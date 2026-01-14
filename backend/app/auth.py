@@ -5,9 +5,12 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+import logging
 from app.config import settings
 from app.database import get_db
 from app.models import User
+
+logger = logging.getLogger(__name__)
 
 # Используем bcrypt с явным указанием бэкенда
 pwd_context = CryptContext(
@@ -49,27 +52,27 @@ async def get_current_user(
     
     try:
         token = credentials.credentials
-        print(f"Received token: {token[:20]}...")
+        logger.debug(f"Received token: {token[:20]}...")
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        print(f"Decoded payload: {payload}")
+        logger.debug(f"Decoded payload: {payload}")
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
-            print("No user_id in payload")
+            logger.warning("No user_id in payload")
             raise credentials_exception
         user_id = int(user_id_str)  # Преобразуем строку в число
     except JWTError as e:
-        print(f"JWT Error: {e}")
+        logger.warning(f"JWT Error: {e}")
         raise credentials_exception
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logger.error(f"Unexpected error in authentication: {e}")
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        print(f"User not found: {user_id}")
+        logger.warning(f"User not found: {user_id}")
         raise credentials_exception
     
-    print(f"User authenticated: {user.email}")
+    logger.info(f"User authenticated: {user.email}")
     return user
 
 

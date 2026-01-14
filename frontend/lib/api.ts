@@ -37,8 +37,10 @@ api.interceptors.request.use(
     const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-      console.log('Token added to request:', token.substring(0, 20) + '...')
-    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Token added to request:', token.substring(0, 20) + '...')
+      }
+    } else if (process.env.NODE_ENV === 'development') {
       console.warn('No token found for request')
     }
     return config

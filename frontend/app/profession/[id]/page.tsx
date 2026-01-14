@@ -26,7 +26,7 @@ export default function ProfessionPage() {
   const router = useRouter()
   const params = useParams()
   const professionId = parseInt(params.id as string)
-  const { isAuthenticated, token } = useAuthStore()
+  const { isAuthenticated, token, initAuth } = useAuthStore()
   const [task, setTask] = useState<Task | null>(null)
   const [taskDescription, setTaskDescription] = useState<string>('')
   const [answer, setAnswer] = useState('')
@@ -36,6 +36,11 @@ export default function ProfessionPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [result, setResult] = useState<any>(null)
+
+  // Инициализируем токен из storage при загрузке страницы
+  useEffect(() => {
+    initAuth()
+  }, [initAuth])
 
   useEffect(() => {
     if (!isAuthenticated) {

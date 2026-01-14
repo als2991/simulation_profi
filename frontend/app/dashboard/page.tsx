@@ -22,10 +22,15 @@ interface Progress {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { isAuthenticated, token, logout } = useAuthStore()
+  const { isAuthenticated, token, logout, initAuth } = useAuthStore()
   const [professions, setProfessions] = useState<Profession[]>([])
   const [progress, setProgress] = useState<Progress[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // Инициализируем токен из storage при загрузке страницы
+  useEffect(() => {
+    initAuth()
+  }, [initAuth])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -33,7 +38,9 @@ export default function DashboardPage() {
       return
     }
     
-    console.log('Loading data with token:', token)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Loading data with token:', token)
+    }
     loadData()
   }, [isAuthenticated, router, token])
 
