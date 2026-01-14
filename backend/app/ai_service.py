@@ -1,6 +1,6 @@
 from openai import OpenAI
 from app.config import settings
-from typing import Dict, Any, List
+from typing import List, Dict, Any
 import json
 import logging
 
@@ -8,147 +8,117 @@ logger = logging.getLogger(__name__)
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
-def generate_task(
+def generate_task_question(
     system_prompt: str,
-    task_template: str,
-    user_history: List[Dict[str, Any]] = None
+    task_description: str,
+    conversation_history: List[Dict[str, str]] = None
 ) -> str:
     """
-    Генерирует конкретное задание на основе шаблона и истории пользователя
+    Генерирует вопрос/задание для пользователя на основе шаблона и истории диалога
+    
+    Args:
+        system_prompt: Системный промпт из scenarios.system_prompt
+        task_description: Описание задания из tasks.description_template
+        conversation_history: История диалога [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
+    
+    Returns:
+        Сгенерированный вопрос/задание от AI
     """
     try:
         messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Сгенерируй задание на основе шаблона: {task_template}"}
+            {"role": "system", "content": system_prompt}
         ]
         
-        if user_history:
-            messages.append({
-                "role": "user",
-                "content": f"История предыдущих ответов пользователя: {json.dumps(user_history, ensure_ascii=False)}"
-            })
+        # Добавляем историю диалога если есть
+        if conversation_history:
+            messages.extend(conversation_history)
+        
+        # Добавляем текущее задание
+        messages.append({
+            "role": "user",
+            "content": task_description
+        })
         
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=messages,
             temperature=0.7,
-            max_tokens=1000
+            max_tokens=1500
         )
         
         return response.choices[0].message.content
+        
     except Exception as e:
-        logger.error(f"Error generating task: {e}", exc_info=True)
-        # Возвращаем шаблон задания в случае ошибки
-        return task_template
+        logger.error(f"Error generating task question: {e}", exc_info=True)
+        # Возвращаем сам текст задания в случае ошибки
+        return task_description
 
 
-def evaluate_answer(
-    system_prompt: str,
-    task_description: str,
+def generate_next_task_prompt(
+    current_task_order: int,
     user_answer: str,
-    task_type: str
-) -> Dict[str, Any]:
+    next_task_description: str
+) -> str:
     """
-    Оценивает ответ пользователя и возвращает метрики и обратную связь
+    Формирует промпт для следующего задания
+    
+    Args:
+        current_task_order: Номер текущего задания
+        user_answer: Ответ пользователя на текущее задание
+        next_task_description: Описание следующего задания из tasks.description_template
+    
+    Returns:
+        Сформированный промпт для user role
     """
-    try:
-        evaluation_prompt = f"""
-Оцени ответ пользователя на задание типа "{task_type}".
-
-Задание: {task_description}
-Ответ пользователя: {user_answer}
-
-Оцени по следующим метрикам (шкала 1-10):
-- systematicity (системность)
-- stress_resistance (стрессоустойчивость)
-- decision_making (принятие решений)
-- empathy (эмпатия)
-- logic (логика)
-
-Верни ответ в формате JSON:
-{{
-    "metrics": {{
-        "systematicity": число,
-        "stress_resistance": число,
-        "decision_making": число,
-        "empathy": число,
-        "logic": число
-    }},
-    "feedback": "текст обратной связи на русском языке"
-}}
-"""
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": evaluation_prompt}
-        ]
-        
-        response = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=messages,
-            temperature=0.3,
-            max_tokens=500,
-            response_format={"type": "json_object"}
-        )
-        
-        result = json.loads(response.choices[0].message.content)
-        return result
-    except Exception as e:
-        logger.error(f"Error evaluating answer: {e}", exc_info=True)
-        # Возвращаем дефолтные метрики в случае ошибки
-        return {
-            "metrics": {
-                "systematicity": 5,
-                "stress_resistance": 5,
-                "decision_making": 5,
-                "empathy": 5,
-                "logic": 5
-            },
-            "feedback": "Ошибка при оценке ответа. Пожалуйста, попробуйте позже."
-        }
+    # Заменяем №X на реальный номер задания в шаблоне
+    next_task_text = next_task_description.replace("№", f"№{current_task_order + 1}")
+    
+    prompt = f"Пользователь ответил на задание №{current_task_order}: {user_answer}\n\n{next_task_text}"
+    
+    return prompt
 
 
 def generate_final_report(
     system_prompt: str,
-    profession_name: str,
-    all_metrics: List[Dict[str, Any]],
-    all_answers: List[str]
+    report_template: str,
+    all_tasks: List[Dict[str, str]]
 ) -> str:
     """
-    Генерирует финальный отчёт на основе всех ответов пользователя
+    Генерирует финальный отчёт на основе всех вопросов и ответов
+    
+    Args:
+        system_prompt: Системный промпт из scenarios.system_prompt
+        report_template: Шаблон отчета из report_templates.template_text
+        all_tasks: Список всех заданий и ответов [{"question": "...", "answer": "..."}]
+    
+    Returns:
+        Финальный отчёт от AI
     """
     try:
-        report_prompt = f"""
-Создай финальный отчёт для пользователя, прошедшего симуляцию профессии "{profession_name}".
-
-Метрики по всем заданиям:
-{json.dumps(all_metrics, ensure_ascii=False)}
-
-Ответы пользователя:
-{json.dumps(all_answers, ensure_ascii=False)}
-
-Создай честный, конструктивный отчёт на русском языке, который:
-1. Анализирует сильные и слабые стороны
-2. Даёт конкретные рекомендации
-3. Оценивает готовность к профессии
-4. Указывает области для развития
-
-Отчёт должен быть профессиональным, но понятным.
-"""
+        # Формируем текст с вопросами и ответами
+        qa_text = ""
+        for i, task in enumerate(all_tasks, 1):
+            qa_text += f"\nВопрос №{i}:\n{task['question']}\n\n"
+            qa_text += f"Ответ:\n{task['answer']}\n"
+            qa_text += "-" * 80 + "\n"
+        
+        # Формируем финальный промпт
+        user_prompt = f"{report_template}\n\n{qa_text}"
         
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": report_prompt}
+            {"role": "user", "content": user_prompt}
         ]
         
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=messages,
             temperature=0.5,
-            max_tokens=2000
+            max_tokens=3000
         )
         
         return response.choices[0].message.content
+        
     except Exception as e:
         logger.error(f"Error generating final report: {e}", exc_info=True)
-        return f"Спасибо за прохождение симуляции профессии {profession_name}. К сожалению, возникла ошибка при генерации отчёта. Пожалуйста, свяжитесь с поддержкой."
+        return "К сожалению, возникла ошибка при генерации отчёта. Пожалуйста, свяжитесь с поддержкой."

@@ -86,9 +86,12 @@ class TaskCreate(TaskBase):
     pass
 
 
-class TaskResponse(TaskBase):
+class TaskResponse(BaseModel):
     id: int
-    created_at: datetime
+    order: int
+    type: str
+    time_limit_minutes: int
+    question: str  # Сгенерированный вопрос от AI
     
     class Config:
         from_attributes = True
@@ -102,9 +105,8 @@ class UserTaskAnswer(BaseModel):
 class UserTaskResponse(BaseModel):
     id: int
     task_id: int
+    question: Optional[str]
     answer: Optional[str]
-    ai_feedback: Optional[str]
-    ai_metrics: Optional[Dict[str, Any]]
     timestamp: datetime
     completed_at: Optional[datetime]
     
@@ -117,10 +119,29 @@ class UserProgressResponse(BaseModel):
     profession_id: int
     status: str
     current_task_order: int
-    overall_metrics: Optional[Dict[str, Any]]
+    conversation_history: Optional[List[Dict[str, str]]]
     final_report: Optional[str]
     started_at: Optional[datetime]
     completed_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True
+
+
+# Report Template schemas
+class ReportTemplateBase(BaseModel):
+    profession_id: int
+    template_text: str
+
+
+class ReportTemplateCreate(ReportTemplateBase):
+    pass
+
+
+class ReportTemplateResponse(ReportTemplateBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime]
     
     class Config:
         from_attributes = True

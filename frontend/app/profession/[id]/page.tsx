@@ -8,7 +8,6 @@ import {
   getProfession,
   getProfessionProgress,
   getCurrentTask,
-  generateTaskContent,
   submitTaskAnswer,
   getFinalReport,
 } from '@/lib/api'
@@ -16,10 +15,10 @@ import toast from 'react-hot-toast'
 
 interface Task {
   id: number
-  description_template: string
   order: number
   type: string
   time_limit_minutes: number
+  question: string
 }
 
 export default function ProfessionPage() {
@@ -28,14 +27,13 @@ export default function ProfessionPage() {
   const professionId = parseInt(params.id as string)
   const { isAuthenticated, token, initAuth } = useAuthStore()
   const [task, setTask] = useState<Task | null>(null)
-  const [taskDescription, setTaskDescription] = useState<string>('')
   const [answer, setAnswer] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [progress, setProgress] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
-  const [showResult, setShowResult] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [showFinalReport, setShowFinalReport] = useState(false)
+  const [finalReport, setFinalReport] = useState<string>('')
 
   // Инициализируем токен из storage при загрузке страницы
   useEffect(() => {
@@ -69,17 +67,14 @@ export default function ProfessionPage() {
       if (professionProgress.status === 'completed') {
         // Показываем финальный отчёт
         const report = await getFinalReport(professionId)
-        setResult(report)
-        setShowResult(true)
+        setFinalReport(report.final_report)
+        setShowFinalReport(true)
         setIsLoading(false)
         return
       }
 
       if (currentTaskData) {
         setTask(currentTaskData)
-        // Генерируем конкретное задание
-        const generated = await generateTaskContent(currentTaskData.id)
-        setTaskDescription(generated.task_description)
         setTimeLeft(currentTaskData.time_limit_minutes * 60)
       }
     } catch (error: any) {
@@ -100,9 +95,22 @@ export default function ProfessionPage() {
     setIsSubmitting(true)
     try {
       const result = await submitTaskAnswer(task.id, answer)
-      setResult(result)
-      setShowResult(true)
-      toast.success('Ответ отправлен!')
+      
+      if (result.completed) {
+        // Симуляция завершена - показываем финальный отчёт
+        setFinalReport(result.final_report)
+        setShowFinalReport(true)
+        toast.success('Симуляция завершена!')
+      } else if (result.next_task) {
+        // Есть следующее задание
+        setTask(result.next_task)
+        setAnswer('')
+        setTimeLeft(result.next_task.time_limit_minutes * 60)
+        toast.success('Ответ отправлен! Следующее задание...')
+      } else {
+        toast.success('Ответ отправлен!')
+        loadData()
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Ошибка при отправке ответа')
     } finally {
@@ -124,7 +132,7 @@ export default function ProfessionPage() {
     )
   }
 
-  if (showResult && result) {
+  if (showFinalReport) {
     return (
       <div className="min-h-screen bg-gray-50">
         <nav className="bg-white shadow-sm">
@@ -138,65 +146,43 @@ export default function ProfessionPage() {
         </nav>
 
         <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-          {progress?.status === 'completed' ? (
-            <div className="rounded-lg bg-white p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Финальный отчёт</h2>
-              <div className="prose max-w-none">
-                <p className="whitespace-pre-wrap text-gray-700">
-                  {result.final_report}
-                </p>
-              </div>
-              {result.overall_metrics && (
-                <div className="mt-8">
-                  <h3 className="text-xl font-semibold mb-4">Общие метрики</h3>
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-                    {Object.entries(result.overall_metrics).map(([key, value]: [string, any]) => (
-                      <div key={key} className="rounded-lg bg-gray-50 p-4">
-                        <div className="text-sm text-gray-600 capitalize">{key}</div>
-                        <div className="text-2xl font-bold text-primary-600">
-                          {value.toFixed(1)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+          <div className="rounded-lg bg-white p-8 shadow-sm">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Финальный отчёт</h2>
+            <div className="prose max-w-none">
+              <p className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                {finalReport}
+              </p>
             </div>
-          ) : (
-            <div className="rounded-lg bg-white p-8 shadow-sm">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Результат задания</h2>
-              {result.ai_feedback && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-2">Обратная связь</h3>
-                  <p className="text-gray-700 whitespace-pre-wrap">{result.ai_feedback}</p>
-                </div>
-              )}
-              {result.ai_metrics && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Метрики</h3>
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-                    {Object.entries(result.ai_metrics).map(([key, value]: [string, any]) => (
-                      <div key={key} className="rounded-lg bg-gray-50 p-4">
-                        <div className="text-sm text-gray-600 capitalize">{key}</div>
-                        <div className="text-2xl font-bold text-primary-600">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setShowResult(false)
-                  setResult(null)
-                  setAnswer('')
-                  loadData()
-                }}
-                className="mt-6 rounded-md bg-primary-600 px-4 py-2 text-white hover:bg-primary-700"
+            <div className="mt-8 flex justify-center">
+              <Link
+                href="/dashboard"
+                className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
               >
-                Следующее задание
-              </button>
+                Вернуться к профессиям
+              </Link>
             </div>
-          )}
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!task) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <nav className="bg-white shadow-sm">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 items-center justify-between">
+              <Link href="/dashboard" className="text-primary-600 hover:text-primary-700">
+                ← Назад к профессиям
+              </Link>
+            </div>
+          </div>
+        </nav>
+        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-lg bg-white p-8 shadow-sm text-center">
+            <p className="text-gray-600">Задания не найдены</p>
+          </div>
         </main>
       </div>
     )
@@ -211,8 +197,8 @@ export default function ProfessionPage() {
               ← Назад к профессиям
             </Link>
             {timeLeft !== null && (
-              <div className="text-lg font-semibold text-gray-900">
-                Осталось: {formatTime(timeLeft)}
+              <div className="text-sm font-medium text-gray-700">
+                Время: {formatTime(timeLeft)}
               </div>
             )}
           </div>
@@ -220,34 +206,47 @@ export default function ProfessionPage() {
       </nav>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <div className="mb-4">
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
-              Задание {task?.order}
-            </span>
+        <div className="rounded-lg bg-white p-8 shadow-sm">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Задание №{task.order}
+              </h2>
+              <span className="rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-800">
+                {task.type}
+              </span>
+            </div>
+            <div className="prose max-w-none">
+              <p className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+                {task.question}
+              </p>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Задание</h2>
-          <div className="rounded-lg bg-white p-6 shadow-sm">
-            <p className="text-gray-700 whitespace-pre-wrap">{taskDescription}</p>
-          </div>
-        </div>
 
-        <div className="rounded-lg bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ваш ответ</h3>
-          <textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            rows={10}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-            placeholder="Введите ваш ответ здесь..."
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={!answer.trim() || isSubmitting}
-            className="mt-4 rounded-md bg-primary-600 px-6 py-2 text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Отправка...' : 'Отправить ответ'}
-          </button>
+          <div className="mt-6">
+            <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
+              Ваш ответ
+            </label>
+            <textarea
+              id="answer"
+              rows={10}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              placeholder="Введите ваш ответ..."
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={handleSubmit}
+              disabled={!answer.trim() || isSubmitting}
+              className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Отправка...' : 'Отправить ответ'}
+            </button>
+          </div>
         </div>
       </main>
     </div>

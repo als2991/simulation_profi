@@ -78,9 +78,8 @@ class UserTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
-    answer = Column(Text)
-    ai_feedback = Column(Text)
-    ai_metrics = Column(JSON)  # {systematicity: 8, stress_resistance: 7, ...}
+    question = Column(Text)  # Вопрос, сгенерированный AI
+    answer = Column(Text)  # Ответ пользователя
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True))
     
@@ -96,7 +95,7 @@ class UserProgress(Base):
     profession_id = Column(Integer, ForeignKey("professions.id"), primary_key=True)
     status = Column(String, default="not_started")  # not_started, in_progress, completed
     current_task_order = Column(Integer, default=0)
-    overall_metrics = Column(JSON)  # Итоговые метрики AI
+    conversation_history = Column(JSON)  # История диалога с AI
     final_report = Column(Text)
     started_at = Column(DateTime(timezone=True))
     completed_at = Column(DateTime(timezone=True))
@@ -153,6 +152,16 @@ class Promocode(Base):
     is_active = Column(Boolean, default=True)
     valid_until = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReportTemplate(Base):
+    __tablename__ = "report_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    profession_id = Column(Integer, ForeignKey("professions.id"), nullable=False)
+    template_text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
 class Event(Base):

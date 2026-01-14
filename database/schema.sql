@@ -52,9 +52,8 @@ CREATE TABLE IF NOT EXISTS user_tasks (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    question TEXT,
     answer TEXT,
-    ai_feedback TEXT,
-    ai_metrics JSONB,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP WITH TIME ZONE
 );
@@ -65,7 +64,7 @@ CREATE TABLE IF NOT EXISTS user_progress (
     profession_id INTEGER NOT NULL REFERENCES professions(id) ON DELETE CASCADE,
     status VARCHAR DEFAULT 'not_started',
     current_task_order INTEGER DEFAULT 0,
-    overall_metrics JSONB,
+    conversation_history JSONB,
     final_report TEXT,
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
@@ -111,6 +110,15 @@ CREATE TABLE IF NOT EXISTS promocodes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Таблица шаблонов для финальных отчетов
+CREATE TABLE IF NOT EXISTS report_templates (
+    id SERIAL PRIMARY KEY,
+    profession_id INTEGER NOT NULL REFERENCES professions(id) ON DELETE CASCADE,
+    template_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Таблица событий для аналитики
 CREATE TABLE IF NOT EXISTS events (
     id SERIAL PRIMARY KEY,
@@ -148,9 +156,14 @@ ON CONFLICT DO NOTHING;
 
 -- Примеры заданий
 INSERT INTO tasks (scenario_id, description_template, "order", type, time_limit_minutes) VALUES
-(1, 'У тебя есть 3 проекта с дедлайнами на этой неделе. Один проект критичен для клиента, второй — внутренний, третий — долгосрочный. Как ты расставишь приоритеты?', 1, 'prioritization', 15),
-(1, 'В твоей команде возник конфликт между разработчиком и дизайнером из-за сроков. Разработчик говорит, что дизайн не готов, дизайнер — что требования менялись. Как ты разрешишь ситуацию?', 2, 'conflict', 15),
-(1, 'Клиент требует сократить сроки проекта на 2 недели без изменения бюджета. Как ты отреагируешь и какие действия предпримешь?', 3, 'deadline', 15)
+(1, 'Этап 0. Вводные:\nПрофессия: Project Manager\nФормат: интерактивная симуляция\nВремя: ~60–90 минут\nПравило: отвечай как на работе, без подсказок.\n\nПроект: B2B-сервис мониторинга для среднего бизнеса\nКоманда: 5 разработчиков, 1 дизайнер\nКлиент платит за результат, сроки критичны\nБюджет фиксированный, требования меняются\n\nЭтап 1. Приоритизация:\nПеред тобой список требований (10 пунктов) — все поступили одновременно.\nЗадание №1:\n1. Выбери ТОП-3 задачи, которые пойдут в работу прямо сейчас\n2. Кратко объясни почему именно они\n3. Укажи что откладываешь и какие риски принимаешь\nОтвечай структурировано, без лишнего.', 1, 'prioritization', 15),
+(1, 'Теперь давай Задание №2 — конфликт команды и клиента.', 2, 'conflict', 15),
+(1, 'Теперь дай Задание №3 — нужно принять решение по релизу с учётом риска 40%, ограничений сроков и требований.', 3, 'deadline', 15)
+ON CONFLICT DO NOTHING;
+
+-- Пример шаблона отчета
+INSERT INTO report_templates (profession_id, template_text) VALUES
+(1, 'Теперь на основании вопросов и ответов сформируй подробный отчёт по симуляции:\n1. Общая картина\n2. Приоритизация\n3. Работа с конфликтом\n4. Ключевое решение\n5. Профиль PM\n6. Где сильнее\n7. Честный вердикт')
 ON CONFLICT DO NOTHING;
 
 -- Пример пакета

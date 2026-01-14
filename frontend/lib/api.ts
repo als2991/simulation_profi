@@ -90,11 +90,6 @@ export const getCurrentTask = async (professionId: number) => {
   }
 }
 
-export const generateTaskContent = async (taskId: number) => {
-  const response = await api.post(`/api/tasks/${taskId}/generate`)
-  return response.data
-}
-
 export const submitTaskAnswer = async (taskId: number, answer: string) => {
   const response = await api.post(`/api/tasks/${taskId}/submit`, { answer })
   return response.data
