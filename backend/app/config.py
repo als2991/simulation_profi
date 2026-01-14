@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     APP_URL: str = "http://localhost:3000"
     API_URL: str = "http://localhost:8000"
     
+    # CORS
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
