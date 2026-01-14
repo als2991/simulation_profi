@@ -9,12 +9,37 @@ const api = axios.create({
   },
 })
 
+// Функция для получения токена
+const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null
+  
+  // Пробуем localStorage
+  let token = localStorage.getItem('auth_token')
+  if (token) return token
+  
+  // Пробуем sessionStorage
+  token = sessionStorage.getItem('auth_token')
+  if (token) return token
+  
+  // Пробуем cookie
+  const cookies = document.cookie.split(';')
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=')
+    if (name === 'auth_token') return value
+  }
+  
+  return null
+}
+
 // Интерцептор для добавления токена к запросам
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token')
+    const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+      console.log('Token added to request:', token.substring(0, 20) + '...')
+    } else {
+      console.warn('No token found for request')
     }
     return config
   },
