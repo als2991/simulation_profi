@@ -50,8 +50,11 @@ def generate_task_question(
         
     except Exception as e:
         logger.error(f"Error generating task question: {e}", exc_info=True)
+        
+        # Временное решение: возвращаем задание с пометкой
+        return f"[ТЕСТОВЫЙ РЕЖИМ - OpenAI недоступен]\n\n{task_description}"
         # Возвращаем сам текст задания в случае ошибки
-        return task_description
+        #return task_description
 
 
 def generate_next_task_prompt(
