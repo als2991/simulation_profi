@@ -52,10 +52,11 @@ async def get_current_user(
         print(f"Received token: {token[:20]}...")
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         print(f"Decoded payload: {payload}")
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
             print("No user_id in payload")
             raise credentials_exception
+        user_id = int(user_id_str)  # Преобразуем строку в число
     except JWTError as e:
         print(f"JWT Error: {e}")
         raise credentials_exception
