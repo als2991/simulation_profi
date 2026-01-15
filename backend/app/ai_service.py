@@ -51,7 +51,6 @@ def generate_task_question(
             messages=messages,
             temperature=0.7,
             max_completion_tokens=1500
-)
         )
         
         ai_response = response.choices[0].message.content
