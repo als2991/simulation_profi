@@ -12,6 +12,7 @@ import {
   getFinalReport,
 } from '@/lib/api'
 import toast from 'react-hot-toast'
+import MarkdownRenderer from '@/components/MarkdownRenderer'
 
 interface Task {
   id: number
@@ -148,11 +149,7 @@ export default function ProfessionPage() {
         <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="rounded-lg bg-white p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Финальный отчёт</h2>
-            <div className="prose max-w-none">
-              <p className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                {finalReport}
-              </p>
-            </div>
+            <MarkdownRenderer content={finalReport} />
             <div className="mt-8 flex justify-center">
               <Link
                 href="/dashboard"
@@ -216,11 +213,7 @@ export default function ProfessionPage() {
                 {task.type}
               </span>
             </div>
-            <div className="prose max-w-none">
-              <p className="whitespace-pre-wrap text-gray-700 leading-relaxed">
-                {task.question}
-              </p>
-            </div>
+            <MarkdownRenderer content={task.question} />
           </div>
 
           <div className="mt-6">
