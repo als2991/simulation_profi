@@ -50,7 +50,8 @@ def generate_task_question(
             model=settings.OPENAI_MODEL,
             messages=messages,
             temperature=0.7,
-            max_tokens=1500
+            max_completion_tokens=1500
+)
         )
         
         ai_response = response.choices[0].message.content
@@ -138,7 +139,7 @@ def generate_final_report(
             model=settings.OPENAI_MODEL,
             messages=messages,
             temperature=0.5,
-            max_tokens=3000
+            max_completion_tokens=3000
         )
         
         ai_response = response.choices[0].message.content
