@@ -122,10 +122,14 @@ export default function ProfessionPage() {
       toast.success('Начинаем новую попытку!')
       setShowFinalReport(false)
       setFinalReport('')
+      setIsLoading(true)
+      setLoadingStage('connecting')
       await loadData()
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Ошибка при начале новой попытки'
       toast.error(message)
+      // При ошибке перезагружаем данные для обновления UI
+      await loadData()
     }
   }
 
