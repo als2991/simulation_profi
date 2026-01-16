@@ -12,6 +12,8 @@ import {
   getFinalReport,
   restartProfession,
   getProgressHistory,
+  getCurrentTaskStream,
+  submitTaskAnswerStream,
 } from '@/lib/api'
 import toast from 'react-hot-toast'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -94,16 +96,52 @@ export default function ProfessionPage() {
         return
       }
 
-      // Загружаем текущее задание (самая долгая операция)
+      // Загружаем текущее задание (streaming для моментального отклика)
       setLoadingStage('generating')
-      const currentTaskData = await getCurrentTask(professionId)
-
-      setLoadingStage('finalizing')
       
-      if (currentTaskData) {
-        setTask(currentTaskData)
-        setTimeLeft(currentTaskData.time_limit_minutes * 60)
-      }
+      let taskMetadata: any = null
+      let fullQuestion = ''
+      
+      await getCurrentTaskStream(
+        professionId,
+        // onToken - получаем токены по мере генерации
+        (token) => {
+          fullQuestion += token
+          // Обновляем задание с частичным текстом для плавного отображения
+          if (taskMetadata) {
+            setTask({
+              ...taskMetadata,
+              question: fullQuestion
+            })
+          }
+        },
+        // onMetadata - получаем метаданные задания
+        (metadata) => {
+          taskMetadata = {
+            id: metadata.id,
+            order: metadata.order,
+            type: metadata.task_type,
+            time_limit_minutes: metadata.time_limit_minutes,
+            question: ''
+          }
+          setTask(taskMetadata)
+          setTimeLeft(metadata.time_limit_minutes * 60)
+          setLoadingStage('finalizing')
+        },
+        // onDone - генерация завершена
+        (fullText, taskId) => {
+          if (taskMetadata) {
+            setTask({
+              ...taskMetadata,
+              question: fullText
+            })
+          }
+        },
+        // onError
+        (error) => {
+          toast.error(`Ошибка: ${error}`)
+        }
+      )
     } catch (error: any) {
       if (error.response?.status === 404) {
         toast.error('Задания не найдены или профессия не куплена')
@@ -161,27 +199,69 @@ export default function ProfessionPage() {
       await new Promise(resolve => setTimeout(resolve, 300))
       
       setSubmitStage('analyzing')
-      const result = await submitTaskAnswer(task.id, answer)
       
-      setSubmitStage('processing')
+      let nextTaskMetadata: any = null
+      let fullNextQuestion = ''
       
-      if (result.completed) {
-        // Симуляция завершена - показываем финальный отчёт
-        setFinalReport(result.final_report)
-        setShowFinalReport(true)
-        toast.success('Симуляция завершена!')
-      } else if (result.next_task) {
-        // Есть следующее задание
-        setTask(result.next_task)
-        setAnswer('')
-        setTimeLeft(result.next_task.time_limit_minutes * 60)
-        toast.success('Ответ принят! Следующее задание готово')
-      } else {
-        toast.success('Ответ отправлен!')
-        loadData()
-      }
+      await submitTaskAnswerStream(
+        task.id,
+        answer,
+        // onToken - получаем токены следующего задания
+        (token) => {
+          fullNextQuestion += token
+          // Обновляем задание с частичным текстом
+          if (nextTaskMetadata) {
+            setTask({
+              ...nextTaskMetadata,
+              question: fullNextQuestion
+            })
+          }
+        },
+        // onMetadata - получаем метаданные следующего задания
+        (metadata) => {
+          if (metadata.completed === false) {
+            setSubmitStage('processing')
+            nextTaskMetadata = {
+              id: metadata.id,
+              order: metadata.order,
+              type: metadata.task_type,
+              time_limit_minutes: metadata.time_limit_minutes,
+              question: ''
+            }
+            setTask(nextTaskMetadata)
+            setAnswer('')
+            setTimeLeft(metadata.time_limit_minutes * 60)
+          }
+        },
+        // onDone - генерация следующего задания завершена
+        (data) => {
+          if (data.completed === false && data.full_text) {
+            // Есть следующее задание
+            if (nextTaskMetadata) {
+              setTask({
+                ...nextTaskMetadata,
+                question: data.full_text
+              })
+            }
+            toast.success('Ответ принят! Следующее задание готово')
+          } else if (data.message) {
+            toast.success(data.message)
+            loadData()
+          }
+        },
+        // onCompleted - симуляция завершена
+        (finalReportText) => {
+          setFinalReport(finalReportText)
+          setShowFinalReport(true)
+          toast.success('Симуляция завершена!')
+        },
+        // onError
+        (error) => {
+          toast.error(`Ошибка: ${error}`)
+        }
+      )
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Ошибка при отправке ответа')
+      toast.error(error.response?.data?.detail || error.message || 'Ошибка при отправке ответа')
     } finally {
       setIsSubmitting(false)
     }

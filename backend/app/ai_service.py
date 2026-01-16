@@ -108,6 +108,96 @@ def generate_next_task_prompt(
     return prompt
 
 
+def generate_task_question_stream(
+    system_prompt: str,
+    task_description: str,
+    conversation_history: List[Dict[str, str]] = None
+):
+    """
+    Генерирует вопрос/задание для пользователя в streaming режиме
+    
+    Args:
+        system_prompt: Системный промпт из scenarios.system_prompt
+        task_description: Описание задания из tasks.description_template
+        conversation_history: История диалога
+    
+    Yields:
+        Токены ответа по мере генерации
+    """
+    try:
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        
+        # Добавляем историю диалога если есть
+        if conversation_history:
+            messages.extend(conversation_history)
+        
+        # Добавляем текущее задание
+        messages.append({
+            "role": "user",
+            "content": task_description
+        })
+        
+        # Debug logging
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Streaming Request - generate_task_question_stream")
+            logger.info(f"Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
+            logger.info("=" * 80)
+        
+        # Замеряем время запроса к OpenAI
+        start_time = time.time()
+        start_datetime = datetime.now()
+        logger.info(f"[TIMING] OpenAI streaming request START at {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        
+        # Streaming запрос
+        stream = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=messages,
+            temperature=0.7,
+            max_completion_tokens=1500,
+            stream=True  # Включаем streaming!
+        )
+        
+        full_response = ""
+        first_token_received = False
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                token = chunk.choices[0].delta.content
+                full_response += token
+                
+                # Логируем получение первого токена
+                if not first_token_received:
+                    first_token_time = time.time()
+                    first_token_datetime = datetime.now()
+                    logger.info(f"[TIMING] First token received at {first_token_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+                    logger.info(f"[TIMING] Time to first token: {first_token_time - start_time:.3f} seconds")
+                    first_token_received = True
+                
+                yield token
+        
+        end_time = time.time()
+        end_datetime = datetime.now()
+        duration = end_time - start_time
+        logger.info(f"[TIMING] OpenAI streaming request END at {end_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        logger.info(f"[TIMING] OpenAI streaming request total duration: {duration:.3f} seconds")
+        
+        # Debug logging
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Streaming Response - generate_task_question_stream")
+            logger.info(f"Full Response: {full_response}")
+            logger.info("=" * 80)
+        
+    except Exception as e:
+        logger.error(f"Error generating task question stream: {e}", exc_info=True)
+        # В случае ошибки отдаем fallback текст
+        fallback = f"[ТЕСТОВЫЙ РЕЖИМ - OpenAI недоступен]\n\n{task_description}"
+        yield fallback
+
+
 def generate_final_report(
     system_prompt: str,
     report_template: str,
