@@ -90,7 +90,7 @@ def generate_next_task_prompt(
         Сформированный промпт для user role
     """
     # Формируем промпт с ответом пользователя и следующим заданием
-    prompt = f"Пользователь ответил на задание №{current_task_order}: {user_answer}\n\n{next_task_description}"
+    prompt = f"Пользователь ответил на задание №{current_task_order}. Его ответ: {user_answer}\n\n{next_task_description}"
     
     return prompt
 

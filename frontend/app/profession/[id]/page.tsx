@@ -15,6 +15,7 @@ import {
 } from '@/lib/api'
 import toast from 'react-hot-toast'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
+import LoadingProgress from '@/components/LoadingProgress'
 
 interface Task {
   id: number
@@ -39,6 +40,8 @@ export default function ProfessionPage() {
   const [finalReport, setFinalReport] = useState<string>('')
   const [history, setHistory] = useState<any>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [loadingStage, setLoadingStage] = useState<'connecting' | 'generating' | 'finalizing'>('connecting')
+  const [submitStage, setSubmitStage] = useState<'submitting' | 'analyzing' | 'processing'>('submitting')
 
   // Инициализируем токен из storage при загрузке страницы
   useEffect(() => {
@@ -62,9 +65,11 @@ export default function ProfessionPage() {
 
   const loadData = async () => {
     try {
-      const [professionProgress, currentTaskData, historyData] = await Promise.all([
+      setLoadingStage('connecting')
+      
+      // Загружаем прогресс и историю
+      const [professionProgress, historyData] = await Promise.all([
         getProfessionProgress(professionId),
-        getCurrentTask(professionId),
         getProgressHistory(professionId),
       ])
 
@@ -73,6 +78,7 @@ export default function ProfessionPage() {
 
       if (professionProgress.status === 'completed') {
         // Показываем финальный отчёт
+        setLoadingStage('finalizing')
         const report = await getFinalReport(professionId)
         setFinalReport(report.final_report)
         setShowFinalReport(true)
@@ -80,6 +86,12 @@ export default function ProfessionPage() {
         return
       }
 
+      // Загружаем текущее задание (самая долгая операция)
+      setLoadingStage('generating')
+      const currentTaskData = await getCurrentTask(professionId)
+
+      setLoadingStage('finalizing')
+      
       if (currentTaskData) {
         setTask(currentTaskData)
         setTimeLeft(currentTaskData.time_limit_minutes * 60)
@@ -113,7 +125,15 @@ export default function ProfessionPage() {
 
     setIsSubmitting(true)
     try {
+      setSubmitStage('submitting')
+      
+      // Небольшая задержка для показа первого этапа
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      setSubmitStage('analyzing')
       const result = await submitTaskAnswer(task.id, answer)
+      
+      setSubmitStage('processing')
       
       if (result.completed) {
         // Симуляция завершена - показываем финальный отчёт
@@ -125,7 +145,7 @@ export default function ProfessionPage() {
         setTask(result.next_task)
         setAnswer('')
         setTimeLeft(result.next_task.time_limit_minutes * 60)
-        toast.success('Ответ отправлен! Следующее задание...')
+        toast.success('Ответ принят! Следующее задание готово')
       } else {
         toast.success('Ответ отправлен!')
         loadData()
@@ -145,8 +165,21 @@ export default function ProfessionPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-600">Загрузка...</p>
+      <div className="min-h-screen bg-gray-50">
+        <nav className="bg-white shadow-sm">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="flex h-16 items-center justify-between">
+              <Link href="/dashboard" className="text-primary-600 hover:text-primary-700">
+                ← Назад к профессиям
+              </Link>
+            </div>
+          </div>
+        </nav>
+        <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-lg bg-white p-8 shadow-sm">
+            <LoadingProgress stage={loadingStage} />
+          </div>
+        </main>
       </div>
     )
   }
@@ -295,42 +328,47 @@ export default function ProfessionPage() {
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-lg bg-white p-8 shadow-sm">
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Задание №{task.order}
-              </h2>
-              <span className="rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-800">
-                {task.type}
-              </span>
+          {isSubmitting ? (
+            <LoadingProgress stage={submitStage} />
+          ) : (
+            <div className="fade-in">
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Задание №{task.order}
+                  </h2>
+                  <span className="rounded-full bg-primary-100 px-3 py-1 text-sm font-medium text-primary-800">
+                    {task.type}
+                  </span>
+                </div>
+                <MarkdownRenderer content={task.question} />
+              </div>
+
+              <div className="mt-6">
+                <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
+                  Ваш ответ
+                </label>
+                <textarea
+                  id="answer"
+                  rows={10}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  placeholder="Введите ваш ответ..."
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={handleSubmit}
+                  disabled={!answer.trim()}
+                  className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                >
+                  Отправить ответ
+                </button>
+              </div>
             </div>
-            <MarkdownRenderer content={task.question} />
-          </div>
-
-          <div className="mt-6">
-            <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
-              Ваш ответ
-            </label>
-            <textarea
-              id="answer"
-              rows={10}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              placeholder="Введите ваш ответ..."
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={handleSubmit}
-              disabled={!answer.trim() || isSubmitting}
-              className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Отправка...' : 'Отправить ответ'}
-            </button>
-          </div>
+          )}
         </div>
       </main>
     </div>
