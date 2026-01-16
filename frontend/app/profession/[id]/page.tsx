@@ -25,6 +25,8 @@ interface Task {
   question: string
 }
 
+const MAX_ATTEMPTS = 3 // Максимальное количество попыток
+
 export default function ProfessionPage() {
   const router = useRouter()
   const params = useParams()
@@ -228,7 +230,7 @@ export default function ProfessionPage() {
                 <h2 className="text-2xl font-bold text-gray-900">Финальный отчёт</h2>
                 {history && viewingAttemptNumber && (
                   <span className="text-sm text-gray-600">
-                    Попытка {viewingAttemptNumber} из {history.total_attempts}
+                    Попытка {viewingAttemptNumber} из {MAX_ATTEMPTS}
                   </span>
                 )}
               </div>
@@ -250,10 +252,10 @@ export default function ProfessionPage() {
             <MarkdownRenderer content={finalReport} />
             
             <div className="mt-8 space-y-4">
-              {history && history.total_attempts >= 3 ? (
+              {history && history.total_attempts >= MAX_ATTEMPTS ? (
                 <div className="text-center">
                   <p className="text-gray-600 mb-4">
-                    Вы достигли максимального количества попыток (3)
+                    Вы достигли максимального количества попыток ({MAX_ATTEMPTS})
                   </p>
                   <Link
                     href="/dashboard"
