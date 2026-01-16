@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore'
 import { getProfessions, getUserProgress } from '@/lib/api'
 import toast from 'react-hot-toast'
 
+const MAX_ATTEMPTS = 3 // Максимальное количество попыток
+
 interface Profession {
   id: number
   name: string
@@ -162,7 +164,7 @@ export default function DashboardPage() {
                     </span>
                     {attemptNum > 0 && (
                       <span className="text-xs text-gray-500">
-                        Попытка {attemptNum}
+                        {attemptNum} из {MAX_ATTEMPTS}
                       </span>
                     )}
                   </div>
