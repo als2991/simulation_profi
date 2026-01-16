@@ -208,19 +208,12 @@ export default function ProfessionPage() {
       
       let nextTaskMetadata: any = null
       let fullNextQuestion = ''
-      let firstTokenReceived = false
       
       await submitTaskAnswerStream(
         task.id,
         answer,
         // onToken - получаем токены следующего задания
         (token) => {
-          // При первом токене СРАЗУ скрываем прогресс-бар!
-          if (!firstTokenReceived) {
-            firstTokenReceived = true
-            setIsSubmitting(false) // ← Убираем прогресс-бар сразу!
-          }
-          
           fullNextQuestion += token
           // Обновляем задание с частичным текстом (как ChatGPT)
           if (nextTaskMetadata) {
@@ -233,13 +226,16 @@ export default function ProfessionPage() {
         // onMetadata - получаем метаданные следующего задания
         (metadata) => {
           if (metadata.completed === false) {
+            // СРАЗУ убираем прогресс-бар при получении метаданных!
+            setIsSubmitting(false)
+            
             setSubmitStage('processing')
             nextTaskMetadata = {
               id: metadata.id,
               order: metadata.order,
               type: metadata.task_type,
               time_limit_minutes: metadata.time_limit_minutes,
-              question: ''
+              question: '' // Пустой вопрос - будет заполняться токенами
             }
             setTask(nextTaskMetadata)
             setAnswer('')
@@ -258,12 +254,14 @@ export default function ProfessionPage() {
             }
             toast.success('Ответ принят! Следующее задание готово')
           } else if (data.message) {
+            setIsSubmitting(false)
             toast.success(data.message)
             loadData()
           }
         },
         // onCompleted - симуляция завершена
         (finalReportText) => {
+          setIsSubmitting(false)
           setFinalReport(finalReportText)
           setShowFinalReport(true)
           toast.success('Симуляция завершена!')

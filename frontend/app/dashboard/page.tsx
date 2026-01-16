@@ -67,14 +67,25 @@ export default function DashboardPage() {
   }
 
   const getProgressStatus = (professionId: number) => {
-    const prog = progress.find((p) => p.profession_id === professionId)
-    if (!prog) return 'not_started'
-    return prog.status
+    // Находим ВСЕ попытки этой профессии
+    const attempts = progress.filter((p) => p.profession_id === professionId)
+    if (attempts.length === 0) return 'not_started'
+    
+    // Находим последнюю попытку (с максимальным attempt_number)
+    const lastAttempt = attempts.reduce((max, curr) => 
+      curr.attempt_number > max.attempt_number ? curr : max
+    )
+    
+    return lastAttempt.status
   }
 
   const getAttemptNumber = (professionId: number) => {
-    const prog = progress.find((p) => p.profession_id === professionId)
-    return prog?.attempt_number || 0
+    // Находим ВСЕ попытки этой профессии
+    const attempts = progress.filter((p) => p.profession_id === professionId)
+    if (attempts.length === 0) return 0
+    
+    // Возвращаем максимальный attempt_number (последняя попытка)
+    return Math.max(...attempts.map((a) => a.attempt_number))
   }
 
   const getStatusText = (status: string) => {
