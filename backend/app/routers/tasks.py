@@ -449,6 +449,7 @@ async def submit_task_answer_stream(
     """Отправить ответ на задание и стримить следующий вопрос или завершить"""
     logger.info(f"[STREAMING] submit_task_answer_stream START for user {current_user.id}, task {task_id}")
     
+    # Только минимальные проверки ДО создания response
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -457,7 +458,6 @@ async def submit_task_answer_stream(
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
     
-    # Получаем прогресс (последнюю попытку)
     profession_id = scenario.profession_id
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
@@ -467,132 +467,128 @@ async def submit_task_answer_stream(
     if not progress:
         raise HTTPException(status_code=404, detail="Progress not found")
     
-    # Проверяем, не отвечал ли уже пользователь в этой попытке
-    existing_user_task = db.query(UserTask).filter(
-        UserTask.user_id == current_user.id,
-        UserTask.task_id == task_id,
-        UserTask.attempt_number == progress.attempt_number
-    ).first()
-    
-    if existing_user_task:
-        raise HTTPException(status_code=400, detail="Task already completed")
-    
-    # Получаем вопрос, который был задан
-    conversation_history = progress.conversation_history or []
-    last_ai_message = ""
-    if conversation_history:
-        for msg in reversed(conversation_history):
-            if msg.get("role") == "assistant":
-                last_ai_message = msg.get("content", "")
-                break
-    
-    if not last_ai_message:
-        last_ai_message = generate_task_question(
-            system_prompt=scenario.system_prompt,
-            task_description=task.description_template,
-            conversation_history=[]
-        )
-    
-    # Сохраняем ответ пользователя
-    user_task = UserTask(
-        user_id=current_user.id,
-        task_id=task_id,
-        progress_id=progress.id,
-        attempt_number=progress.attempt_number,
-        question=last_ai_message,
-        answer=answer_data.answer,
-        completed_at=datetime.utcnow()
-    )
-    db.add(user_task)
-    
-    # Добавляем ответ пользователя в историю диалога
-    conversation_history.append({
-        "role": "user",
-        "content": f"Пользователь ответил на задание №{task.order}: {answer_data.answer}"
-    })
-    
-    # Обновляем прогресс
-    progress.current_task_order = task.order
-    progress.conversation_history = conversation_history
-    
-    # Проверяем, есть ли еще задания
-    total_tasks = db.query(Task).filter(Task.scenario_id == scenario.id).count()
-    
-    if task.order >= total_tasks:
-        # Это было последнее задание - генерируем финальный отчёт (не streaming)
-        profession = db.query(Profession).filter(Profession.id == profession_id).first()
-        
-        report_template_obj = db.query(ReportTemplate).filter(
-            ReportTemplate.profession_id == profession_id
-        ).first()
-        
-        if not report_template_obj:
-            raise HTTPException(status_code=404, detail="Report template not found")
-        
-        all_user_tasks = db.query(UserTask).join(Task).filter(
-            UserTask.user_id == current_user.id,
-            Task.scenario_id == scenario.id
-        ).order_by(Task.order).all()
-        
-        all_tasks = [
-            {"question": ut.question, "answer": ut.answer}
-            for ut in all_user_tasks if ut.question and ut.answer
-        ]
-        
-        final_report = generate_final_report(
-            system_prompt=scenario.system_prompt,
-            report_template=report_template_obj.template_text,
-            all_tasks=all_tasks
-        )
-        
-        progress.status = "completed"
-        progress.completed_at = datetime.utcnow()
-        progress.final_report = final_report
-        
-        # Очищаем conversation_history - он больше не нужен, отчет уже сохранен
-        # Это экономит место в БД
-        progress.conversation_history = []
-        logger.info(f"[OPTIMIZATION] Cleared conversation_history after report generation (stream)")
-        
-        db.commit()
-        
-        # Отправляем финальный отчет без streaming
-        async def final_generator():
-            done_data = {
-                "type": "completed",
-                "data": {"final_report": final_report}
-            }
-            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
-        
-        return StreamingResponse(
-            final_generator(),
-            media_type="text/event-stream"
-        )
-    else:
-        # Есть еще задания - генерируем следующий вопрос со streaming
-        next_task = db.query(Task).filter(
-            Task.scenario_id == scenario.id,
-            Task.order == task.order + 1
-        ).first()
-        
-        if next_task:
-            # Формируем промпт для следующего задания
-            next_prompt = generate_next_task_prompt(
-                current_task_order=task.order,
-                user_answer=answer_data.answer,
-                next_task_description=next_task.description_template
-            )
+    # Основная логика теперь внутри генератора для быстрого старта streaming
+    async def process_and_stream():
+        """Обрабатываем ответ и стримим следующее задание"""
+        try:
+            # Проверяем, не отвечал ли уже пользователь
+            existing_user_task = db.query(UserTask).filter(
+                UserTask.user_id == current_user.id,
+                UserTask.task_id == task_id,
+                UserTask.attempt_number == progress.attempt_number
+            ).first()
             
-            # Добавляем промпт в историю как user message
+            if existing_user_task:
+                error_data = {"type": "error", "data": {"message": "Task already completed"}}
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+                return
+            
+            # Получаем вопрос, который был задан
+            conversation_history = progress.conversation_history or []
+            last_ai_message = ""
+            if conversation_history:
+                for msg in reversed(conversation_history):
+                    if msg.get("role") == "assistant":
+                        last_ai_message = msg.get("content", "")
+                        break
+            
+            if not last_ai_message:
+                last_ai_message = generate_task_question(
+                    system_prompt=scenario.system_prompt,
+                    task_description=task.description_template,
+                    conversation_history=[]
+                )
+            
+            # Сохраняем ответ пользователя
+            user_task = UserTask(
+                user_id=current_user.id,
+                task_id=task_id,
+                progress_id=progress.id,
+                attempt_number=progress.attempt_number,
+                question=last_ai_message,
+                answer=answer_data.answer,
+                completed_at=datetime.utcnow()
+            )
+            db.add(user_task)
+            
+            # Добавляем ответ пользователя в историю
             conversation_history.append({
                 "role": "user",
-                "content": next_prompt
+                "content": f"Пользователь ответил на задание №{task.order}: {answer_data.answer}"
             })
             
-            async def next_task_generator():
-                """Генератор для следующего задания"""
-                try:
-                    # Сначала отправляем метаданные
+            # Обновляем прогресс
+            progress.current_task_order = task.order
+            progress.conversation_history = conversation_history
+            
+            # Проверяем, есть ли еще задания
+            total_tasks = db.query(Task).filter(Task.scenario_id == scenario.id).count()
+            
+            if task.order >= total_tasks:
+                # Последнее задание - генерируем финальный отчёт
+                profession = db.query(Profession).filter(Profession.id == profession_id).first()
+                
+                report_template_obj = db.query(ReportTemplate).filter(
+                    ReportTemplate.profession_id == profession_id
+                ).first()
+                
+                if not report_template_obj:
+                    error_data = {"type": "error", "data": {"message": "Report template not found"}}
+                    yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+                    return
+                
+                all_user_tasks = db.query(UserTask).join(Task).filter(
+                    UserTask.user_id == current_user.id,
+                    Task.scenario_id == scenario.id
+                ).order_by(Task.order).all()
+                
+                all_tasks = [
+                    {"question": ut.question, "answer": ut.answer}
+                    for ut in all_user_tasks if ut.question and ut.answer
+                ]
+                
+                final_report = generate_final_report(
+                    system_prompt=scenario.system_prompt,
+                    report_template=report_template_obj.template_text,
+                    all_tasks=all_tasks
+                )
+                
+                progress.status = "completed"
+                progress.completed_at = datetime.utcnow()
+                progress.final_report = final_report
+                progress.conversation_history = []
+                
+                db.commit()
+                logger.info(f"[OPTIMIZATION] Cleared conversation_history after report generation")
+                
+                # Отправляем финальный отчет
+                done_data = {
+                    "type": "completed",
+                    "data": {"final_report": final_report}
+                }
+                yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
+            else:
+                # Есть еще задания - генерируем следующий вопрос
+                next_task = db.query(Task).filter(
+                    Task.scenario_id == scenario.id,
+                    Task.order == task.order + 1
+                ).first()
+                
+                if next_task:
+                    # Формируем промпт для следующего задания
+                    next_prompt = generate_next_task_prompt(
+                        current_task_order=task.order,
+                        user_answer=answer_data.answer,
+                        next_task_description=next_task.description_template
+                    )
+                    
+                    # Добавляем промпт в историю
+                    conversation_history.append({
+                        "role": "user",
+                        "content": next_prompt
+                    })
+                    
+                    # СРАЗУ отправляем метаданные (до DB операций!)
                     metadata = {
                         "type": "metadata",
                         "data": {
@@ -628,7 +624,7 @@ async def submit_task_answer_stream(
                     progress.conversation_history = conversation_history
                     db.commit()
                     
-                    # В конце отправляем полный текст и сигнал завершения
+                    # Отправляем сигнал завершения
                     done_data = {
                         "type": "done",
                         "data": {
@@ -640,41 +636,34 @@ async def submit_task_answer_stream(
                     yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
                     
                     logger.info(f"[STREAMING] Stream completed for next task {next_task.id}")
-                    
-                except Exception as e:
-                    logger.error(f"[STREAMING] Error in stream: {e}", exc_info=True)
-                    error_data = {
-                        "type": "error",
-                        "data": {"message": str(e)}
+                else:
+                    db.commit()
+                    done_data = {
+                        "type": "done",
+                        "data": {
+                            "message": "Task submitted successfully",
+                            "completed": False
+                        }
                     }
-                    yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
-            
-            return StreamingResponse(
-                next_task_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no"
-                }
-            )
-        
-        db.commit()
-        
-        async def no_more_tasks_generator():
-            done_data = {
-                "type": "done",
-                "data": {
-                    "message": "Task submitted successfully",
-                    "completed": False
-                }
+                    yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
+                    
+        except Exception as e:
+            logger.error(f"[STREAMING] Error in stream: {e}", exc_info=True)
+            error_data = {
+                "type": "error",
+                "data": {"message": str(e)}
             }
-            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
-        
-        return StreamingResponse(
-            no_more_tasks_generator(),
-            media_type="text/event-stream"
-        )
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        process_and_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.get("/profession/{profession_id}/report")

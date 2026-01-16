@@ -201,11 +201,6 @@ export default function ProfessionPage() {
     try {
       setSubmitStage('submitting')
       
-      // Небольшая задержка для показа первого этапа
-      await new Promise(resolve => setTimeout(resolve, 300))
-      
-      setSubmitStage('analyzing')
-      
       let nextTaskMetadata: any = null
       let fullNextQuestion = ''
       
