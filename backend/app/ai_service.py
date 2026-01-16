@@ -3,6 +3,8 @@ from app.config import settings
 from typing import List, Dict, Any
 import json
 import logging
+import time
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -46,12 +48,23 @@ def generate_task_question(
             logger.info(f"Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
             logger.info("=" * 80)
         
+        # Замеряем время запроса к OpenAI
+        start_time = time.time()
+        start_datetime = datetime.now()
+        logger.info(f"[TIMING] OpenAI request START at {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=messages,
             temperature=0.7,
             max_completion_tokens=1500
         )
+        
+        end_time = time.time()
+        end_datetime = datetime.now()
+        duration = end_time - start_time
+        logger.info(f"[TIMING] OpenAI request END at {end_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        logger.info(f"[TIMING] OpenAI request duration: {duration:.3f} seconds")
         
         ai_response = response.choices[0].message.content
         
@@ -134,12 +147,23 @@ def generate_final_report(
             logger.info(f"Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
             logger.info("=" * 80)
         
+        # Замеряем время запроса к OpenAI
+        start_time = time.time()
+        start_datetime = datetime.now()
+        logger.info(f"[TIMING] OpenAI request START at {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=messages,
             temperature=0.5,
             max_completion_tokens=3000
         )
+        
+        end_time = time.time()
+        end_datetime = datetime.now()
+        duration = end_time - start_time
+        logger.info(f"[TIMING] OpenAI request END at {end_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        logger.info(f"[TIMING] OpenAI request duration: {duration:.3f} seconds")
         
         ai_response = response.choices[0].message.content
         

@@ -3,11 +3,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
+import time
+import logging
 from app.database import get_db
 from app.models import User, Task, UserTask, UserProgress, Scenario, Profession, ReportTemplate
 from app.schemas import TaskResponse, UserTaskAnswer, UserTaskResponse
 from app.auth import get_current_active_user
 from app.ai_service import generate_task_question, generate_next_task_prompt, generate_final_report
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -19,7 +23,11 @@ async def get_current_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Получить текущее задание для профессии и сгенерировать вопрос через AI"""
+    request_start = time.time()
+    logger.info(f"[TIMING] get_current_task START for user {current_user.id}, profession {profession_id}")
+    
     # Получаем последнюю попытку
+    db_start = time.time()
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
@@ -55,14 +63,24 @@ async def get_current_task(
     if not task:
         raise HTTPException(status_code=404, detail="No more tasks")
     
+    db_end = time.time()
+    logger.info(f"[TIMING] Database queries completed in {db_end - db_start:.3f} seconds")
+    
     # Генерируем вопрос через AI
     conversation_history = progress.conversation_history or []
     
+    ai_start = time.time()
+    logger.info(f"[TIMING] Calling AI service...")
     ai_question = generate_task_question(
         system_prompt=scenario.system_prompt,
         task_description=task.description_template,
         conversation_history=conversation_history
     )
+    ai_end = time.time()
+    logger.info(f"[TIMING] AI service completed in {ai_end - ai_start:.3f} seconds")
+    
+    request_end = time.time()
+    logger.info(f"[TIMING] get_current_task TOTAL: {request_end - request_start:.3f} seconds")
     
     return {
         "id": task.id,
@@ -81,6 +99,10 @@ async def submit_task_answer(
     current_user: User = Depends(get_current_active_user)
 ):
     """Отправить ответ на задание и получить следующий вопрос или завершить"""
+    request_start = time.time()
+    logger.info(f"[TIMING] submit_task_answer START for user {current_user.id}, task {task_id}")
+    
+    db_start = time.time()
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -152,6 +174,9 @@ async def submit_task_answer(
     # Проверяем, есть ли еще задания
     total_tasks = db.query(Task).filter(Task.scenario_id == scenario.id).count()
     
+    db_end = time.time()
+    logger.info(f"[TIMING] Database queries completed in {db_end - db_start:.3f} seconds")
+    
     if task.order >= total_tasks:
         # Это было последнее задание - генерируем финальный отчёт
         profession = db.query(Profession).filter(Profession.id == profession_id).first()
@@ -176,17 +201,24 @@ async def submit_task_answer(
         ]
         
         # Генерируем финальный отчёт
+        ai_start = time.time()
+        logger.info(f"[TIMING] Calling AI service for final report...")
         final_report = generate_final_report(
             system_prompt=scenario.system_prompt,
             report_template=report_template_obj.template_text,
             all_tasks=all_tasks
         )
+        ai_end = time.time()
+        logger.info(f"[TIMING] AI service (final report) completed in {ai_end - ai_start:.3f} seconds")
         
         progress.status = "completed"
         progress.completed_at = datetime.utcnow()
         progress.final_report = final_report
         
         db.commit()
+        
+        request_end = time.time()
+        logger.info(f"[TIMING] submit_task_answer TOTAL (with final report): {request_end - request_start:.3f} seconds")
         
         return {
             "completed": True,
@@ -214,11 +246,15 @@ async def submit_task_answer(
             })
             
             # Генерируем следующий вопрос
+            ai_start = time.time()
+            logger.info(f"[TIMING] Calling AI service for next question...")
             next_question = generate_task_question(
                 system_prompt=scenario.system_prompt,
                 task_description=next_prompt,
                 conversation_history=[]  # Не передаем историю, т.к. она уже в промпте
             )
+            ai_end = time.time()
+            logger.info(f"[TIMING] AI service (next question) completed in {ai_end - ai_start:.3f} seconds")
             
             # Сохраняем вопрос AI в истории
             conversation_history.append({
@@ -229,6 +265,9 @@ async def submit_task_answer(
             progress.conversation_history = conversation_history
             
             db.commit()
+            
+            request_end = time.time()
+            logger.info(f"[TIMING] submit_task_answer TOTAL (with next question): {request_end - request_start:.3f} seconds")
             
             return {
                 "completed": False,
@@ -242,6 +281,9 @@ async def submit_task_answer(
             }
         
         db.commit()
+        
+        request_end = time.time()
+        logger.info(f"[TIMING] submit_task_answer TOTAL (no next question): {request_end - request_start:.3f} seconds")
         
         return {
             "completed": False,
