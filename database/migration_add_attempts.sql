@@ -51,10 +51,10 @@ FOREIGN KEY (progress_id) REFERENCES user_progress(id) ON DELETE CASCADE;
 UPDATE user_tasks ut
 SET progress_id = up.id,
     attempt_number = 1
-FROM user_progress up
-JOIN tasks t ON t.id = ut.task_id
-JOIN scenarios s ON s.id = t.scenario_id
-WHERE up.user_id = ut.user_id 
+FROM user_progress up, tasks t, scenarios s
+WHERE t.id = ut.task_id
+  AND s.id = t.scenario_id
+  AND up.user_id = ut.user_id 
   AND up.profession_id = s.profession_id
   AND up.attempt_number = 1
   AND ut.progress_id IS NULL;
