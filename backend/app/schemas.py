@@ -105,6 +105,7 @@ class UserTaskAnswer(BaseModel):
 class UserTaskResponse(BaseModel):
     id: int
     task_id: int
+    attempt_number: int
     question: Optional[str]
     answer: Optional[str]
     timestamp: datetime
@@ -116,7 +117,9 @@ class UserTaskResponse(BaseModel):
 
 # User Progress schemas
 class UserProgressResponse(BaseModel):
+    id: int
     profession_id: int
+    attempt_number: int
     status: str
     current_task_order: int
     conversation_history: Optional[List[Dict[str, str]]]
@@ -126,6 +129,25 @@ class UserProgressResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class AttemptSummary(BaseModel):
+    """Краткая информация о попытке для списка"""
+    id: int
+    attempt_number: int
+    status: str
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True
+
+
+class ProgressHistoryResponse(BaseModel):
+    """История всех попыток профессии"""
+    profession_id: int
+    total_attempts: int
+    attempts: List[AttemptSummary]
 
 
 # Report Template schemas

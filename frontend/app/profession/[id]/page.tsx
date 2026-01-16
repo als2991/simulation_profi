@@ -10,6 +10,8 @@ import {
   getCurrentTask,
   submitTaskAnswer,
   getFinalReport,
+  restartProfession,
+  getProgressHistory,
 } from '@/lib/api'
 import toast from 'react-hot-toast'
 import MarkdownRenderer from '@/components/MarkdownRenderer'
@@ -35,6 +37,8 @@ export default function ProfessionPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [showFinalReport, setShowFinalReport] = useState(false)
   const [finalReport, setFinalReport] = useState<string>('')
+  const [history, setHistory] = useState<any>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   // Инициализируем токен из storage при загрузке страницы
   useEffect(() => {
@@ -58,12 +62,14 @@ export default function ProfessionPage() {
 
   const loadData = async () => {
     try {
-      const [professionProgress, currentTaskData] = await Promise.all([
+      const [professionProgress, currentTaskData, historyData] = await Promise.all([
         getProfessionProgress(professionId),
         getCurrentTask(professionId),
+        getProgressHistory(professionId),
       ])
 
       setProgress(professionProgress)
+      setHistory(historyData)
 
       if (professionProgress.status === 'completed') {
         // Показываем финальный отчёт
@@ -87,6 +93,18 @@ export default function ProfessionPage() {
       }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleRestart = async () => {
+    try {
+      await restartProfession(professionId)
+      toast.success('Начинаем новую попытку!')
+      setShowFinalReport(false)
+      setFinalReport('')
+      await loadData()
+    } catch (error: any) {
+      toast.error('Ошибка при начале новой попытки')
     }
   }
 
@@ -148,16 +166,89 @@ export default function ProfessionPage() {
 
         <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="rounded-lg bg-white p-8 shadow-sm">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Финальный отчёт</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Финальный отчёт</h2>
+              {history && history.total_attempts > 0 && (
+                <span className="text-sm text-gray-600">
+                  Попытка {history.total_attempts}
+                </span>
+              )}
+            </div>
+            
             <MarkdownRenderer content={finalReport} />
-            <div className="mt-8 flex justify-center">
+            
+            <div className="mt-8 flex justify-center gap-4">
+              <button
+                onClick={handleRestart}
+                className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
+              >
+                Пройти заново
+              </button>
               <Link
                 href="/dashboard"
-                className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
+                className="rounded-md bg-gray-200 px-6 py-3 text-gray-700 hover:bg-gray-300"
               >
                 Вернуться к профессиям
               </Link>
             </div>
+
+            {history && history.total_attempts > 1 && (
+              <div className="mt-8 border-t pt-8">
+                <button
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex items-center gap-2 text-gray-700 hover:text-primary-600"
+                >
+                  <span className="font-medium">История прохождений ({history.total_attempts})</span>
+                  <svg
+                    className={`w-5 h-5 transition-transform ${showHistory ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showHistory && (
+                  <div className="mt-4 space-y-2">
+                    {history.attempts.map((attempt: any) => (
+                      <div
+                        key={attempt.id}
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                      >
+                        <div>
+                          <span className="font-medium">Попытка {attempt.attempt_number}</span>
+                          {attempt.completed_at && (
+                            <span className="ml-2 text-sm text-gray-500">
+                              {new Date(attempt.completed_at).toLocaleDateString('ru-RU')}
+                            </span>
+                          )}
+                        </div>
+                        {attempt.status === 'completed' && attempt.attempt_number !== history.total_attempts && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const report = await getFinalReport(professionId, attempt.attempt_number)
+                                setFinalReport(report.final_report)
+                                toast.success(`Загружен отчет попытки ${attempt.attempt_number}`)
+                              } catch (error) {
+                                toast.error('Ошибка загрузки отчета')
+                              }
+                            }}
+                            className="text-sm text-primary-600 hover:text-primary-700"
+                          >
+                            Смотреть отчет
+                          </button>
+                        )}
+                        {attempt.attempt_number === history.total_attempts && (
+                          <span className="text-sm text-green-600 font-medium">⭐ Текущая</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </main>
       </div>

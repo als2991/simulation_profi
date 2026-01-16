@@ -77,6 +77,21 @@ export const getProfessionProgress = async (professionId: number) => {
   return response.data
 }
 
+export const getProgressHistory = async (professionId: number) => {
+  const response = await api.get(`/api/professions/${professionId}/progress/history`)
+  return response.data
+}
+
+export const getSpecificAttempt = async (professionId: number, attemptNumber: number) => {
+  const response = await api.get(`/api/professions/${professionId}/progress/${attemptNumber}`)
+  return response.data
+}
+
+export const restartProfession = async (professionId: number) => {
+  const response = await api.post(`/api/professions/${professionId}/progress/restart`, {})
+  return response.data
+}
+
 // Tasks
 export const getCurrentTask = async (professionId: number) => {
   try {
@@ -95,8 +110,9 @@ export const submitTaskAnswer = async (taskId: number, answer: string) => {
   return response.data
 }
 
-export const getFinalReport = async (professionId: number) => {
-  const response = await api.get(`/api/tasks/profession/${professionId}/report`)
+export const getFinalReport = async (professionId: number, attemptNumber?: number) => {
+  const params = attemptNumber ? { attempt_number: attemptNumber } : {}
+  const response = await api.get(`/api/tasks/profession/${professionId}/report`, { params })
   return response.data
 }
 

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
@@ -18,17 +19,18 @@ async def get_current_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Получить текущее задание для профессии и сгенерировать вопрос через AI"""
-    # Проверяем или создаем прогресс
+    # Получаем последнюю попытку
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
-    ).first()
+    ).order_by(desc(UserProgress.attempt_number)).first()
     
     if not progress:
-        # Создаем новый прогресс
+        # Создаем новую попытку (attempt_number = 1)
         progress = UserProgress(
             user_id=current_user.id,
             profession_id=profession_id,
+            attempt_number=1,
             status="in_progress",
             current_task_order=0,
             conversation_history=[],
@@ -36,6 +38,7 @@ async def get_current_task(
         )
         db.add(progress)
         db.commit()
+        db.refresh(progress)
     
     # Получаем сценарий профессии
     scenario = db.query(Scenario).filter(Scenario.profession_id == profession_id).first()
@@ -86,24 +89,25 @@ async def submit_task_answer(
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
     
-    # Проверяем, не отвечал ли уже пользователь
-    existing_user_task = db.query(UserTask).filter(
-        UserTask.user_id == current_user.id,
-        UserTask.task_id == task_id
-    ).first()
-    
-    if existing_user_task:
-        raise HTTPException(status_code=400, detail="Task already completed")
-    
-    # Получаем прогресс
+    # Получаем прогресс (последнюю попытку)
     profession_id = scenario.profession_id
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
-    ).first()
+    ).order_by(desc(UserProgress.attempt_number)).first()
     
     if not progress:
         raise HTTPException(status_code=404, detail="Progress not found")
+    
+    # Проверяем, не отвечал ли уже пользователь в этой попытке
+    existing_user_task = db.query(UserTask).filter(
+        UserTask.user_id == current_user.id,
+        UserTask.task_id == task_id,
+        UserTask.attempt_number == progress.attempt_number
+    ).first()
+    
+    if existing_user_task:
+        raise HTTPException(status_code=400, detail="Task already completed")
     
     # Получаем вопрос, который был задан (из последнего элемента conversation_history)
     conversation_history = progress.conversation_history or []
@@ -123,10 +127,12 @@ async def submit_task_answer(
             conversation_history=[]
         )
     
-    # Сохраняем ответ пользователя
+    # Сохраняем ответ пользователя с привязкой к попытке
     user_task = UserTask(
         user_id=current_user.id,
         task_id=task_id,
+        progress_id=progress.id,
+        attempt_number=progress.attempt_number,
         question=last_ai_message,
         answer=answer_data.answer,
         completed_at=datetime.utcnow()
@@ -246,19 +252,28 @@ async def submit_task_answer(
 @router.get("/profession/{profession_id}/report")
 async def get_final_report(
     profession_id: int,
+    attempt_number: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Получить финальный отчёт по профессии"""
-    progress = db.query(UserProgress).filter(
+    """Получить финальный отчёт по профессии (по умолчанию - последняя попытка)"""
+    query = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
-    ).first()
+    )
+    
+    if attempt_number:
+        # Конкретная попытка
+        progress = query.filter(UserProgress.attempt_number == attempt_number).first()
+    else:
+        # Последняя попытка
+        progress = query.order_by(desc(UserProgress.attempt_number)).first()
     
     if not progress or progress.status != "completed":
         raise HTTPException(status_code=404, detail="Report not available")
     
     return {
         "final_report": progress.final_report,
+        "attempt_number": progress.attempt_number,
         "completed_at": progress.completed_at
     }

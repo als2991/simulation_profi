@@ -78,6 +78,8 @@ class UserTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    progress_id = Column(Integer, ForeignKey("user_progress.id", ondelete="CASCADE"), nullable=True)
+    attempt_number = Column(Integer, default=1, nullable=False)
     question = Column(Text)  # Вопрос, сгенерированный AI
     answer = Column(Text)  # Ответ пользователя
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
@@ -86,13 +88,16 @@ class UserTask(Base):
     # Relationships
     user = relationship("User", back_populates="user_tasks")
     task = relationship("Task", back_populates="user_tasks")
+    progress = relationship("UserProgress", back_populates="tasks", foreign_keys=[progress_id])
 
 
 class UserProgress(Base):
     __tablename__ = "user_progress"
     
-    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
-    profession_id = Column(Integer, ForeignKey("professions.id"), primary_key=True)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    profession_id = Column(Integer, ForeignKey("professions.id"), nullable=False)
+    attempt_number = Column(Integer, default=1, nullable=False)
     status = Column(String, default="not_started")  # not_started, in_progress, completed
     current_task_order = Column(Integer, default=0)
     conversation_history = Column(JSON)  # История диалога с AI
@@ -103,6 +108,7 @@ class UserProgress(Base):
     # Relationships
     user = relationship("User", back_populates="user_progress")
     profession = relationship("Profession", back_populates="user_progress")
+    tasks = relationship("UserTask", back_populates="progress", foreign_keys="UserTask.progress_id")
 
 
 class Payment(Base):

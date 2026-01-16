@@ -69,6 +69,11 @@ export default function DashboardPage() {
     return prog.status
   }
 
+  const getAttemptNumber = (professionId: number) => {
+    const prog = progress.find((p) => p.profession_id === professionId)
+    return prog?.attempt_number || 0
+  }
+
   const getStatusText = (status: string) => {
     switch (status) {
       case 'not_started':
@@ -135,6 +140,7 @@ export default function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {professions.map((profession) => {
             const status = getProgressStatus(profession.id)
+            const attemptNum = getAttemptNumber(profession.id)
             return (
               <div
                 key={profession.id}
@@ -147,11 +153,18 @@ export default function DashboardPage() {
                   {profession.description}
                 </p>
                 <div className="mt-4 flex items-center justify-between">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(status)}`}
-                  >
-                    {getStatusText(status)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(status)}`}
+                    >
+                      {getStatusText(status)}
+                    </span>
+                    {attemptNum > 0 && (
+                      <span className="text-xs text-gray-500">
+                        Попытка {attemptNum}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-lg font-bold text-gray-900">
                     {profession.price} ₽
                   </span>
