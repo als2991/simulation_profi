@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import User, Profession, UserProgress
 from app.schemas import ProfessionResponse, UserProgressResponse, ProgressHistoryResponse, AttemptSummary
 from app.auth import get_current_active_user
+from app.config import settings
 
 router = APIRouter()
 
@@ -120,6 +121,13 @@ async def restart_profession(
     ).order_by(desc(UserProgress.attempt_number)).first()
     
     next_attempt = (max_attempt.attempt_number + 1) if max_attempt else 1
+    
+    # Проверяем лимит попыток
+    if next_attempt > settings.MAX_PROFESSION_ATTEMPTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Достигнут лимит попыток прохождения профессии ({settings.MAX_PROFESSION_ATTEMPTS})"
+        )
     
     # Создаём новую попытку
     new_progress = UserProgress(

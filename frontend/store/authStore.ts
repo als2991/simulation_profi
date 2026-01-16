@@ -68,27 +68,42 @@ const removeToken = () => {
   }
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  isAuthenticated: false,
+export const useAuthStore = create<AuthState>((set, get) => {
+  // Инициализируем токен сразу при создании store
+  const initialToken = getToken()
   
-  initAuth: () => {
-    const storedToken = getToken()
-    if (storedToken) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Token loaded from storage')
+  if (initialToken && process.env.NODE_ENV === 'development') {
+    console.log('Token loaded from storage on init')
+  }
+  
+  return {
+    token: initialToken,
+    isAuthenticated: !!initialToken,
+    
+    initAuth: () => {
+      const storedToken = getToken()
+      const currentToken = get().token
+      
+      // Обновляем только если токен изменился
+      if (storedToken && storedToken !== currentToken) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Token reloaded from storage')
+        }
+        set({ token: storedToken, isAuthenticated: true })
+      } else if (!storedToken && currentToken) {
+        // Токен был удален
+        set({ token: null, isAuthenticated: false })
       }
-      set({ token: storedToken, isAuthenticated: true })
-    }
-  },
-  
-  setAuth: (token: string) => {
-    saveToken(token)
-    set({ token, isAuthenticated: true })
-  },
-  
-  logout: () => {
-    removeToken()
-    set({ token: null, isAuthenticated: false })
-  },
-}))
+    },
+    
+    setAuth: (token: string) => {
+      saveToken(token)
+      set({ token, isAuthenticated: true })
+    },
+    
+    logout: () => {
+      removeToken()
+      set({ token: null, isAuthenticated: false })
+    },
+  }
+})

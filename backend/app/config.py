@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-5.2"
     DEBUG_OPENAI_PROMPTS: bool = False
     
+    # Limits
+    MAX_PROFESSION_ATTEMPTS: int = 3
+    
     # Payments
     YUKASSA_SHOP_ID: Optional[str] = None
     YUKASSA_SECRET_KEY: Optional[str] = None

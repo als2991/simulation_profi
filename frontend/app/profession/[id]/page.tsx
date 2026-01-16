@@ -42,6 +42,7 @@ export default function ProfessionPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [loadingStage, setLoadingStage] = useState<'connecting' | 'generating' | 'finalizing'>('connecting')
   const [submitStage, setSubmitStage] = useState<'submitting' | 'analyzing' | 'processing'>('submitting')
+  const [viewingAttemptNumber, setViewingAttemptNumber] = useState<number | null>(null)
 
   // Инициализируем токен из storage при загрузке страницы
   useEffect(() => {
@@ -75,6 +76,11 @@ export default function ProfessionPage() {
 
       setProgress(professionProgress)
       setHistory(historyData)
+      
+      // Устанавливаем просматриваемую попытку на последнюю
+      if (historyData && historyData.total_attempts > 0) {
+        setViewingAttemptNumber(historyData.total_attempts)
+      }
 
       if (professionProgress.status === 'completed') {
         // Показываем финальный отчёт
@@ -116,7 +122,25 @@ export default function ProfessionPage() {
       setFinalReport('')
       await loadData()
     } catch (error: any) {
-      toast.error('Ошибка при начале новой попытки')
+      const message = error.response?.data?.detail || 'Ошибка при начале новой попытки'
+      toast.error(message)
+    }
+  }
+
+  const handleViewAttempt = async (attemptNumber: number) => {
+    try {
+      const report = await getFinalReport(professionId, attemptNumber)
+      setFinalReport(report.final_report)
+      setViewingAttemptNumber(attemptNumber)
+      toast.success(`Загружен отчет попытки ${attemptNumber}`)
+    } catch (error) {
+      toast.error('Ошибка загрузки отчета')
+    }
+  }
+
+  const handleBackToLatest = async () => {
+    if (history && history.total_attempts > 0) {
+      await handleViewAttempt(history.total_attempts)
     }
   }
 
@@ -199,30 +223,61 @@ export default function ProfessionPage() {
 
         <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="rounded-lg bg-white p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Финальный отчёт</h2>
-              {history && history.total_attempts > 0 && (
-                <span className="text-sm text-gray-600">
-                  Попытка {history.total_attempts}
-                </span>
+            <div className="mb-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Финальный отчёт</h2>
+                {history && viewingAttemptNumber && (
+                  <span className="text-sm text-gray-600">
+                    Попытка {viewingAttemptNumber} из {history.total_attempts}
+                  </span>
+                )}
+              </div>
+              {history && viewingAttemptNumber && viewingAttemptNumber !== history.total_attempts && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-sm text-blue-800 mb-2">
+                    Вы просматриваете отчет попытки {viewingAttemptNumber}
+                  </p>
+                  <button
+                    onClick={handleBackToLatest}
+                    className="text-sm text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Вернуться к последней попытке ({history.total_attempts})
+                  </button>
+                </div>
               )}
             </div>
             
             <MarkdownRenderer content={finalReport} />
             
-            <div className="mt-8 flex justify-center gap-4">
-              <button
-                onClick={handleRestart}
-                className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
-              >
-                Пройти заново
-              </button>
-              <Link
-                href="/dashboard"
-                className="rounded-md bg-gray-200 px-6 py-3 text-gray-700 hover:bg-gray-300"
-              >
-                Вернуться к профессиям
-              </Link>
+            <div className="mt-8 space-y-4">
+              {history && history.total_attempts >= 3 ? (
+                <div className="text-center">
+                  <p className="text-gray-600 mb-4">
+                    Вы достигли максимального количества попыток (3)
+                  </p>
+                  <Link
+                    href="/dashboard"
+                    className="inline-block rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
+                  >
+                    Вернуться к профессиям
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={handleRestart}
+                    className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
+                  >
+                    Пройти заново
+                  </button>
+                  <Link
+                    href="/dashboard"
+                    className="rounded-md bg-gray-200 px-6 py-3 text-gray-700 hover:bg-gray-300"
+                  >
+                    Вернуться к профессиям
+                  </Link>
+                </div>
+              )}
             </div>
 
             {history && history.total_attempts > 1 && (
@@ -257,24 +312,19 @@ export default function ProfessionPage() {
                             </span>
                           )}
                         </div>
-                        {attempt.status === 'completed' && attempt.attempt_number !== history.total_attempts && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                const report = await getFinalReport(professionId, attempt.attempt_number)
-                                setFinalReport(report.final_report)
-                                toast.success(`Загружен отчет попытки ${attempt.attempt_number}`)
-                              } catch (error) {
-                                toast.error('Ошибка загрузки отчета')
-                              }
-                            }}
-                            className="text-sm text-primary-600 hover:text-primary-700"
-                          >
-                            Смотреть отчет
-                          </button>
-                        )}
-                        {attempt.attempt_number === history.total_attempts && (
-                          <span className="text-sm text-green-600 font-medium">⭐ Текущая</span>
+                        {attempt.status === 'completed' && (
+                          <>
+                            {viewingAttemptNumber === attempt.attempt_number ? (
+                              <span className="text-sm text-green-600 font-medium">⭐ Просматриваете</span>
+                            ) : (
+                              <button
+                                onClick={() => handleViewAttempt(attempt.attempt_number)}
+                                className="text-sm text-primary-600 hover:text-primary-700 underline"
+                              >
+                                Смотреть отчет
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}
