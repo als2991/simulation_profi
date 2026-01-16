@@ -156,19 +156,52 @@ async def get_current_task_stream(
             }
             yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
             
-            # Стримим токены от OpenAI
-            full_text = ""
-            for token in generate_task_question_stream(
-                system_prompt=scenario.system_prompt,
-                task_description=task.description_template,
-                conversation_history=conversation_history
-            ):
-                full_text += token
-                token_data = {
-                    "type": "token",
-                    "data": {"token": token}
-                }
-                yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+            # Проверяем, есть ли уже сгенерированный вопрос в истории
+            existing_question = None
+            if conversation_history:
+                # Ищем последнее сообщение от assistant
+                for msg in reversed(conversation_history):
+                    if msg.get("role") == "assistant":
+                        existing_question = msg.get("content", "")
+                        break
+            
+            if existing_question:
+                # Вопрос уже был сгенерирован - отдаем его сразу (без AI)
+                logger.info(f"[STREAMING] Using cached question from conversation_history")
+                full_text = existing_question
+                
+                # Эмулируем streaming для единообразия (отправляем частями)
+                chunk_size = 50
+                for i in range(0, len(full_text), chunk_size):
+                    chunk = full_text[i:i+chunk_size]
+                    token_data = {
+                        "type": "token",
+                        "data": {"token": chunk}
+                    }
+                    yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+            else:
+                # Вопрос еще не сгенерирован - генерируем через AI
+                full_text = ""
+                for token in generate_task_question_stream(
+                    system_prompt=scenario.system_prompt,
+                    task_description=task.description_template,
+                    conversation_history=conversation_history
+                ):
+                    full_text += token
+                    token_data = {
+                        "type": "token",
+                        "data": {"token": token}
+                    }
+                    yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+                
+                # Сохраняем сгенерированный вопрос в conversation_history
+                conversation_history.append({
+                    "role": "assistant",
+                    "content": full_text
+                })
+                progress.conversation_history = conversation_history
+                db.commit()
+                logger.info(f"[STREAMING] Saved generated question to conversation_history")
             
             # В конце отправляем полный текст и сигнал завершения
             done_data = {
@@ -324,6 +357,11 @@ async def submit_task_answer(
         progress.status = "completed"
         progress.completed_at = datetime.utcnow()
         progress.final_report = final_report
+        
+        # Очищаем conversation_history - он больше не нужен, отчет уже сохранен
+        # Это экономит место в БД
+        progress.conversation_history = []
+        logger.info(f"[OPTIMIZATION] Cleared conversation_history after report generation")
         
         db.commit()
         
@@ -510,6 +548,11 @@ async def submit_task_answer_stream(
         progress.status = "completed"
         progress.completed_at = datetime.utcnow()
         progress.final_report = final_report
+        
+        # Очищаем conversation_history - он больше не нужен, отчет уже сохранен
+        # Это экономит место в БД
+        progress.conversation_history = []
+        logger.info(f"[OPTIMIZATION] Cleared conversation_history after report generation (stream)")
         
         db.commit()
         

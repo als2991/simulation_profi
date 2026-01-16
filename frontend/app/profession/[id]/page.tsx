@@ -101,13 +101,20 @@ export default function ProfessionPage() {
       
       let taskMetadata: any = null
       let fullQuestion = ''
+      let firstTokenReceived = false
       
       await getCurrentTaskStream(
         professionId,
         // onToken - получаем токены по мере генерации
         (token) => {
+          // При первом токене СРАЗУ скрываем прогресс-бар и показываем UI!
+          if (!firstTokenReceived) {
+            firstTokenReceived = true
+            setIsLoading(false) // ← Убираем прогресс-бар сразу!
+          }
+          
           fullQuestion += token
-          // Обновляем задание с частичным текстом для плавного отображения
+          // Обновляем задание с частичным текстом для плавного отображения (как ChatGPT)
           if (taskMetadata) {
             setTask({
               ...taskMetadata,
@@ -126,7 +133,6 @@ export default function ProfessionPage() {
           }
           setTask(taskMetadata)
           setTimeLeft(metadata.time_limit_minutes * 60)
-          setLoadingStage('finalizing')
         },
         // onDone - генерация завершена
         (fullText, taskId) => {
@@ -140,6 +146,7 @@ export default function ProfessionPage() {
         // onError
         (error) => {
           toast.error(`Ошибка: ${error}`)
+          setIsLoading(false)
         }
       )
     } catch (error: any) {
@@ -149,7 +156,6 @@ export default function ProfessionPage() {
       } else {
         toast.error('Ошибка при загрузке задания')
       }
-    } finally {
       setIsLoading(false)
     }
   }
@@ -202,14 +208,21 @@ export default function ProfessionPage() {
       
       let nextTaskMetadata: any = null
       let fullNextQuestion = ''
+      let firstTokenReceived = false
       
       await submitTaskAnswerStream(
         task.id,
         answer,
         // onToken - получаем токены следующего задания
         (token) => {
+          // При первом токене СРАЗУ скрываем прогресс-бар!
+          if (!firstTokenReceived) {
+            firstTokenReceived = true
+            setIsSubmitting(false) // ← Убираем прогресс-бар сразу!
+          }
+          
           fullNextQuestion += token
-          // Обновляем задание с частичным текстом
+          // Обновляем задание с частичным текстом (как ChatGPT)
           if (nextTaskMetadata) {
             setTask({
               ...nextTaskMetadata,
@@ -262,7 +275,6 @@ export default function ProfessionPage() {
       )
     } catch (error: any) {
       toast.error(error.response?.data?.detail || error.message || 'Ошибка при отправке ответа')
-    } finally {
       setIsSubmitting(false)
     }
   }
