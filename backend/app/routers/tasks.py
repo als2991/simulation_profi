@@ -24,11 +24,11 @@ async def get_current_task(
     current_user: User = Depends(get_current_active_user)
 ):
     """Получить текущее задание для профессии и сгенерировать вопрос через AI (STREAMING)"""
-    # Проверяем или создаем прогресс
+    # Проверяем или создаем прогресс (берем последнюю попытку)
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
-    ).first()
+    ).order_by(desc(UserProgress.attempt_number)).first()
     
     if not progress:
         # Создаем новый прогресс
@@ -189,12 +189,12 @@ async def submit_task_answer(
     if existing_user_task:
         raise HTTPException(status_code=400, detail="Task already completed")
     
-    # Получаем прогресс
+    # Получаем прогресс (берем последнюю попытку)
     profession_id = scenario.profession_id
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
-    ).first()
+    ).order_by(desc(UserProgress.attempt_number)).first()
     
     if not progress:
         raise HTTPException(status_code=404, detail="Progress not found")
