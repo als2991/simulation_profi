@@ -188,16 +188,7 @@ async def submit_task_answer(
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found")
     
-    # Проверяем, не отвечал ли уже пользователь
-    existing_user_task = db.query(UserTask).filter(
-        UserTask.user_id == current_user.id,
-        UserTask.task_id == task_id
-    ).first()
-    
-    if existing_user_task:
-        raise HTTPException(status_code=400, detail="Task already completed")
-    
-    # Получаем прогресс (берем последнюю попытку)
+    # Получаем прогресс (берем последнюю попытку) - СНАЧАЛА!
     profession_id = scenario.profession_id
     progress = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
@@ -206,6 +197,15 @@ async def submit_task_answer(
     
     if not progress:
         raise HTTPException(status_code=404, detail="Progress not found")
+    
+    # Проверяем, не отвечал ли уже пользователь в ТЕКУЩЕЙ попытке
+    existing_user_task = db.query(UserTask).filter(
+        UserTask.progress_id == progress.id,
+        UserTask.task_id == task_id
+    ).first()
+    
+    if existing_user_task:
+        raise HTTPException(status_code=400, detail="Task already completed in this attempt")
     
     async def process_and_stream():
         try:
@@ -236,6 +236,8 @@ async def submit_task_answer(
             user_task = UserTask(
                 user_id=current_user.id,
                 task_id=task_id,
+                progress_id=progress.id,
+                attempt_number=progress.attempt_number,
                 question=last_ai_message,
                 answer=answer_data.answer,
                 completed_at=datetime.utcnow()
