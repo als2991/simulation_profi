@@ -64,14 +64,25 @@ export default function DashboardPage() {
   }
 
   const getProgressStatus = (professionId: number) => {
-    const prog = progress.find((p) => p.profession_id === professionId)
-    if (!prog) return 'not_started'
-    return prog.status
+    // Находим ВСЕ попытки этой профессии
+    const attempts = progress.filter((p) => p.profession_id === professionId)
+    if (attempts.length === 0) return 'not_started'
+    
+    // Находим последнюю попытку (с максимальным attempt_number)
+    const lastAttempt = attempts.reduce((max, curr) => 
+      curr.attempt_number > max.attempt_number ? curr : max
+    )
+    
+    return lastAttempt.status
   }
 
   const getAttemptNumber = (professionId: number) => {
-    const prog = progress.find((p) => p.profession_id === professionId)
-    return prog?.attempt_number || 0
+    // Находим ВСЕ попытки этой профессии
+    const attempts = progress.filter((p) => p.profession_id === professionId)
+    if (attempts.length === 0) return 0
+    
+    // Возвращаем максимальный attempt_number (последняя попытка)
+    return Math.max(...attempts.map((a) => a.attempt_number))
   }
 
   const getStatusText = (status: string) => {
@@ -140,6 +151,7 @@ export default function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {professions.map((profession) => {
             const status = getProgressStatus(profession.id)
+            const attemptNum = getAttemptNumber(profession.id)
             return (
               <div
                 key={profession.id}
@@ -152,11 +164,18 @@ export default function DashboardPage() {
                   {profession.description}
                 </p>
                 <div className="mt-4 flex items-center justify-between">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(status)}`}
-                  >
-                    {getStatusText(status)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(status)}`}
+                    >
+                      {getStatusText(status)}
+                    </span>
+                    {attemptNum > 0 && (
+                      <span className="text-xs text-gray-500">
+                        {attemptNum} из {MAX_ATTEMPTS}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-lg font-bold text-gray-900">
                     {profession.price} ₽
                   </span>
