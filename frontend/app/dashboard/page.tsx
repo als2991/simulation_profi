@@ -18,6 +18,7 @@ interface Progress {
   profession_id: number
   status: string
   current_task_order: number
+  attempt_number: number
 }
 
 export default function DashboardPage() {
