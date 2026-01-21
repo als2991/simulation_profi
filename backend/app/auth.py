@@ -52,9 +52,7 @@ async def get_current_user(
     
     try:
         token = credentials.credentials
-        logger.debug(f"Received token: {token[:20]}...")
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        logger.debug(f"Decoded payload: {payload}")
         user_id_str: str = payload.get("sub")
         if user_id_str is None:
             logger.warning("No user_id in payload")
@@ -72,7 +70,6 @@ async def get_current_user(
         logger.warning(f"User not found: {user_id}")
         raise credentials_exception
     
-    logger.info(f"User authenticated: {user.email}")
     return user
 
 

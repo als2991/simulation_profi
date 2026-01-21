@@ -166,23 +166,17 @@ export const getCurrentTaskStream = async (
         if (line.startsWith('data: ')) {
           try {
             const message: StreamMessage = JSON.parse(line.slice(6))
-            console.log('[SSE] Received message:', message.type, message.data)
-            
             switch (message.type) {
               case 'metadata':
-                console.log('[SSE] Calling onMetadata with:', message.data)
                 onMetadata?.(message.data)
                 break
               case 'token':
-                console.log('[SSE] Calling onToken with token:', message.data.token)
                 onToken(message.data.token)
                 break
               case 'done':
-                console.log('[SSE] Calling onDone with full_text length:', message.data.full_text?.length)
                 onDone?.(message.data.full_text, message.data.task_id)
                 break
               case 'error':
-                console.log('[SSE] Calling onError with:', message.data.message)
                 onError?.(message.data.message)
                 break
             }
@@ -251,31 +245,23 @@ export const submitTaskAnswerStream = async (
         if (line.startsWith('data: ')) {
           try {
             const message: StreamMessage = JSON.parse(line.slice(6))
-            console.log('[SSE SUBMIT] Received message:', message.type, message.data)
-            
             switch (message.type) {
               case 'metadata':
-                console.log('[SSE SUBMIT] Calling onMetadata with:', message.data)
                 onMetadata?.(message.data)
                 break
               case 'token':
-                console.log('[SSE SUBMIT] Calling onToken with token:', message.data.token)
                 onToken(message.data.token)
                 break
               case 'report_token':
-                console.log('[SSE SUBMIT] Calling onToken with report token:', message.data.token)
                 onToken(message.data.token)  // Используем тот же callback для токенов отчета
                 break
               case 'done':
-                console.log('[SSE SUBMIT] Calling onDone with:', message.data)
                 onDone?.(message.data)
                 break
               case 'completed':
-                console.log('[SSE SUBMIT] Calling onCompleted with report length:', message.data.final_report?.length)
                 onCompleted?.(message.data.final_report)
                 break
               case 'error':
-                console.log('[SSE SUBMIT] Calling onError with:', message.data.message)
                 onError?.(message.data.message)
                 break
             }

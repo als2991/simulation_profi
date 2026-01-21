@@ -63,10 +63,7 @@ async def get_current_task(
     
     async def event_generator():
         try:
-            import time
             import asyncio
-            generator_start_time = time.time()
-            logger.info(f"[STREAMING] event_generator START for user {current_user.id}, profession {profession_id}")
             
             # Проверяем, есть ли уже закешированный вопрос в истории
             existing_question = None
@@ -79,7 +76,6 @@ async def get_current_task(
             
             if existing_question:
                 # Вопрос уже есть в кеше - отправляем сразу
-                logger.info(f"[STREAMING] Using cached question for user {current_user.id}, profession {profession_id}")
                 metadata = {
                     "type": "metadata",
                     "data": {
@@ -103,9 +99,6 @@ async def get_current_task(
             
             # Вопроса нет - стримим от OpenAI
             import time
-            stream_start_time = time.time()
-            logger.info(f"[STREAMING] get_current_task_stream START for user {current_user.id}, profession {profession_id}")
-            
             # 1. Сразу отправляем metadata (чтобы UI мог подготовиться)
             metadata = {
                 "type": "metadata",
@@ -116,9 +109,7 @@ async def get_current_task(
                     "time_limit_minutes": task.time_limit_minutes
                 }
             }
-            logger.info(f"[STREAMING] Sending metadata immediately (before OpenAI)")
             yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
-            logger.info(f"[STREAMING] Metadata sent, starting OpenAI streaming...")
             
             # 2. Стримим токены от OpenAI
             full_text = ""
@@ -153,7 +144,6 @@ async def get_current_task(
             }
             yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
             
-            logger.info(f"[STREAMING] Stream completed for user {current_user.id}, profession {profession_id}")
             
         except Exception as e:
             logger.error(f"[STREAMING] Error in stream: {e}", exc_info=True)
@@ -211,9 +201,6 @@ async def submit_task_answer(
     
     async def process_and_stream():
         try:
-            import time
-            start_time = time.time()
-            logger.info(f"[TIMING] submit_task_answer START for task {task_id}")
             
             # Получаем вопрос, который был задан (из последнего элемента conversation_history)
             conversation_history = progress.conversation_history or []
@@ -259,15 +246,10 @@ async def submit_task_answer(
             # Проверяем, есть ли еще задания
             total_tasks = db.query(Task).filter(Task.scenario_id == scenario.id).count()
             
-            db_time = time.time()
-            logger.info(f"[TIMING] DB operations completed in {db_time - start_time:.3f} seconds")
-            
             if task.order >= total_tasks:
                 # Это было последнее задание - генерируем финальный отчёт
                 
                 # ВАЖНО: Сразу отправляем metadata, чтобы скрыть прогресс-бар!
-                report_metadata_time = time.time()
-                logger.info(f"[TIMING] Sending report metadata after {report_metadata_time - start_time:.3f} seconds")
                 
                 report_metadata = {
                     "type": "metadata",
@@ -279,7 +261,6 @@ async def submit_task_answer(
                 yield f"data: {json.dumps(report_metadata, ensure_ascii=False)}\n\n"
                 import asyncio
                 await asyncio.sleep(0)  # Force flush to network
-                logger.info(f"[TIMING] Report metadata sent (flushed), generating final report...")
                 
                 # Получаем шаблон отчета
                 report_template_obj = db.query(ReportTemplate).filter(
@@ -321,7 +302,6 @@ async def submit_task_answer(
                 progress.completed_at = datetime.utcnow()
                 progress.final_report = full_report
                 progress.conversation_history = []  # Очищаем историю после завершения
-                logger.info(f"[OPTIMIZATION] Cleared conversation_history after report generation (stream)")
                 
                 db.commit()
                 
@@ -353,8 +333,6 @@ async def submit_task_answer(
                     
                     # ВАЖНО: СРАЗУ отправляем metadata (до OpenAI streaming!)
                     # Это позволит UI скрыть прогресс-бар немедленно!
-                    metadata_time = time.time()
-                    logger.info(f"[TIMING] Sending metadata after {metadata_time - start_time:.3f} seconds")
                     
                     metadata = {
                         "type": "metadata",
@@ -369,7 +347,6 @@ async def submit_task_answer(
                     yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
                     import asyncio
                     await asyncio.sleep(0)  # Force flush to network
-                    logger.info(f"[TIMING] Metadata sent (flushed), starting OpenAI streaming...")
                     
                     # Теперь стримим следующий вопрос от OpenAI
                     full_text = ""
@@ -405,7 +382,6 @@ async def submit_task_answer(
                     }
                     yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
                     
-                    logger.info(f"[STREAMING] Stream completed for next task {next_task.id}")
                 else:
                     # Нет следующего задания (не должно происходить)
                     db.commit()

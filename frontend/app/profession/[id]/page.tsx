@@ -110,7 +110,6 @@ export default function ProfessionPage() {
           // При первом токене СРАЗУ скрываем прогресс-бар и показываем UI!
           if (!firstTokenReceived) {
             firstTokenReceived = true
-            console.log('[LOAD] First token received! Hiding loading indicator.')
             setIsLoading(false) // ← Убираем прогресс-бар сразу!
           }
           
@@ -125,7 +124,6 @@ export default function ProfessionPage() {
         },
         // onMetadata - получаем метаданные задания
         (metadata) => {
-          console.log('[LOAD] Metadata received:', metadata)
           taskMetadata = {
             id: metadata.id,
             order: metadata.order,
@@ -139,11 +137,9 @@ export default function ProfessionPage() {
           // НЕ скрываем прогресс-бар здесь!
           // Будет скрыт при первом токене (onToken)
           // Или при done (для кешированных вопросов)
-          console.log('[LOAD] Metadata processed, waiting for tokens...')
         },
         // onDone - генерация завершена
         (fullText, taskId) => {
-          console.log('[LOAD] Done received, hiding loading indicator')
           setIsLoading(false) // Скрываем прогресс-бар (для кешированных вопросов)
           
           if (taskMetadata) {
@@ -227,14 +223,12 @@ export default function ProfessionPage() {
           
           // При первом токене СКРЫВАЕМ прогресс-бар!
           if (tokenCount === 1) {
-            console.log('[SUBMIT] First token received - hiding progress bar!')
             setIsSubmitting(false)
           }
           
           if (isGeneratingReport) {
             // Накапливаем токены отчета
             fullReportText += token
-            console.log(`[REPORT] Token #${tokenCount}: total length: ${fullReportText.length}`)
             setFinalReport(fullReportText)
             // Показываем отчет сразу при первом токене
             if (tokenCount === 1) {
@@ -243,34 +237,28 @@ export default function ProfessionPage() {
           } else {
             // Накапливаем токены следующего задания
             fullNextQuestion += token
-            console.log(`[STREAMING] Token #${tokenCount}: "${token}", total length: ${fullNextQuestion.length}`)
             
             // Обновляем задание с частичным текстом (как ChatGPT)
             if (nextTaskMetadata) {
-              console.log(`[STREAMING] Updating task with question: "${fullNextQuestion.substring(0, 50)}..."`)
               setTask({
                 ...nextTaskMetadata,
                 question: fullNextQuestion
               })
             } else {
-              console.log('[STREAMING] Token received but metadata not ready yet')
             }
           }
         },
         // onMetadata - получаем метаданные следующего задания или отчета
         (metadata) => {
-          console.log('[SUBMIT] Metadata received:', metadata)
           
           if (metadata.completed === true && metadata.generating_report) {
             // Генерируем финальный отчет
-            console.log('[SUBMIT] Generating final report - waiting for tokens!')
             isGeneratingReport = true
             tokenCount = 0  // Сбрасываем счетчик для токенов отчета
             setSubmitStage('processing')
             toast('Генерируем ваш финальный отчет...', { duration: 20000, icon: '📝' })
             // Прогресс-бар будет скрыт при первом токене отчета
           } else if (metadata.completed === false) {
-            console.log('[SUBMIT] Next task metadata - keeping progress bar until first token!')
             // НЕ скрываем прогресс-бар сразу! Подождем первого токена
             
             setSubmitStage('processing')
@@ -281,7 +269,6 @@ export default function ProfessionPage() {
               time_limit_minutes: metadata.time_limit_minutes,
               question: '' // Пустой вопрос - будет заполняться токенами
             }
-            console.log('[STREAMING] Setting initial task with empty question')
             setTask(nextTaskMetadata)
             setAnswer('')
             setTimeLeft(metadata.time_limit_minutes * 60)

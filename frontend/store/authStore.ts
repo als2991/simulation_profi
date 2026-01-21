@@ -17,9 +17,6 @@ const saveToken = (token: string) => {
     sessionStorage.setItem('auth_token', token)
     // Также сохраняем в cookie как fallback
     document.cookie = `auth_token=${token}; path=/; max-age=${30 * 60}; SameSite=Lax`
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Token saved successfully')
-    }
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Failed to save token:', error)
@@ -72,9 +69,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
   // Инициализируем токен сразу при создании store
   const initialToken = getToken()
   
-  if (initialToken && process.env.NODE_ENV === 'development') {
-    console.log('Token loaded from storage on init')
-  }
   
   return {
     token: initialToken,
@@ -86,9 +80,6 @@ export const useAuthStore = create<AuthState>((set, get) => {
       
       // Обновляем только если токен изменился
       if (storedToken && storedToken !== currentToken) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Token reloaded from storage')
-        }
         set({ token: storedToken, isAuthenticated: true })
       } else if (!storedToken && currentToken) {
         // Токен был удален

@@ -42,7 +42,6 @@ export default function DashboardPage() {
     }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('Loading data with token:', token)
     }
     loadData()
   }, [isAuthenticated, router, token])
