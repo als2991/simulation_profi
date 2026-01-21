@@ -252,6 +252,21 @@ async def submit_task_answer(
             
             if task.order >= total_tasks:
                 # Это было последнее задание - генерируем финальный отчёт
+                
+                # ВАЖНО: Сразу отправляем metadata, чтобы скрыть прогресс-бар!
+                report_metadata_time = time.time()
+                logger.info(f"[TIMING] Sending report metadata after {report_metadata_time - start_time:.3f} seconds")
+                
+                report_metadata = {
+                    "type": "metadata",
+                    "data": {
+                        "completed": True,
+                        "generating_report": True
+                    }
+                }
+                yield f"data: {json.dumps(report_metadata, ensure_ascii=False)}\n\n"
+                logger.info(f"[TIMING] Report metadata sent, generating final report...")
+                
                 # Получаем шаблон отчета
                 report_template_obj = db.query(ReportTemplate).filter(
                     ReportTemplate.profession_id == profession_id

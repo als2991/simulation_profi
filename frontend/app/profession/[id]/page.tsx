@@ -232,11 +232,17 @@ export default function ProfessionPage() {
             console.log('[STREAMING] Token received but metadata not ready yet')
           }
         },
-        // onMetadata - получаем метаданные следующего задания
+        // onMetadata - получаем метаданные следующего задания или отчета
         (metadata) => {
           console.log('[SUBMIT] Metadata received:', metadata)
           
-          if (metadata.completed === false) {
+          if (metadata.completed === true && metadata.generating_report) {
+            // Генерируем финальный отчет
+            console.log('[SUBMIT] Generating final report - hiding progress bar!')
+            setIsSubmitting(false)
+            setSubmitStage('processing')
+            toast.success('Генерируем ваш отчет...')
+          } else if (metadata.completed === false) {
             console.log('[SUBMIT] Setting isSubmitting to false - hiding progress bar!')
             // СРАЗУ убираем прогресс-бар при получении метаданных!
             setIsSubmitting(false)
