@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore'
 import { getProfessions, getUserProgress } from '@/lib/api'
 import toast from 'react-hot-toast'
 
+const MAX_ATTEMPTS = 3 // Максимальное количество попыток
+
 interface Profession {
   id: number
   name: string
