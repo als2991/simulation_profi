@@ -64,6 +64,7 @@ async def get_current_task(
     async def event_generator():
         try:
             import time
+            import asyncio
             generator_start_time = time.time()
             logger.info(f"[STREAMING] event_generator START for user {current_user.id}, profession {profession_id}")
             
