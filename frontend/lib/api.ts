@@ -112,7 +112,7 @@ export const submitTaskAnswer = async (taskId: number, answer: string) => {
 
 // Streaming Tasks
 export interface StreamMessage {
-  type: 'metadata' | 'token' | 'done' | 'error' | 'completed'
+  type: 'metadata' | 'token' | 'report_token' | 'done' | 'error' | 'completed'
   data: any
 }
 
