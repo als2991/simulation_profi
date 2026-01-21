@@ -201,6 +201,10 @@ async def submit_task_answer(
     
     async def process_and_stream():
         try:
+            import time
+            start_time = time.time()
+            logger.info(f"[TIMING] submit_task_answer START for task {task_id}")
+            
             # Получаем вопрос, который был задан (из последнего элемента conversation_history)
             conversation_history = progress.conversation_history or []
             last_ai_message = ""
@@ -242,6 +246,9 @@ async def submit_task_answer(
             
             # Проверяем, есть ли еще задания
             total_tasks = db.query(Task).filter(Task.scenario_id == scenario.id).count()
+            
+            db_time = time.time()
+            logger.info(f"[TIMING] DB operations completed in {db_time - start_time:.3f} seconds")
             
             if task.order >= total_tasks:
                 # Это было последнее задание - генерируем финальный отчёт
@@ -307,6 +314,9 @@ async def submit_task_answer(
                     
                     # ВАЖНО: СРАЗУ отправляем metadata (до OpenAI streaming!)
                     # Это позволит UI скрыть прогресс-бар немедленно!
+                    metadata_time = time.time()
+                    logger.info(f"[TIMING] Sending metadata after {metadata_time - start_time:.3f} seconds")
+                    
                     metadata = {
                         "type": "metadata",
                         "data": {
@@ -318,6 +328,7 @@ async def submit_task_answer(
                         }
                     }
                     yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
+                    logger.info(f"[TIMING] Metadata sent, starting OpenAI streaming...")
                     
                     # Теперь стримим следующий вопрос от OpenAI
                     full_text = ""
