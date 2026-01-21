@@ -275,7 +275,9 @@ async def submit_task_answer(
                     }
                 }
                 yield f"data: {json.dumps(report_metadata, ensure_ascii=False)}\n\n"
-                logger.info(f"[TIMING] Report metadata sent, generating final report...")
+                import asyncio
+                await asyncio.sleep(0)  # Force flush to network
+                logger.info(f"[TIMING] Report metadata sent (flushed), generating final report...")
                 
                 # Получаем шаблон отчета
                 report_template_obj = db.query(ReportTemplate).filter(
@@ -353,7 +355,9 @@ async def submit_task_answer(
                         }
                     }
                     yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
-                    logger.info(f"[TIMING] Metadata sent, starting OpenAI streaming...")
+                    import asyncio
+                    await asyncio.sleep(0)  # Force flush to network
+                    logger.info(f"[TIMING] Metadata sent (flushed), starting OpenAI streaming...")
                     
                     # Теперь стримим следующий вопрос от OpenAI
                     full_text = ""
