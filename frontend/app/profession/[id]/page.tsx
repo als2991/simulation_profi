@@ -135,6 +135,11 @@ export default function ProfessionPage() {
           }
           setTask(taskMetadata)
           setTimeLeft(metadata.time_limit_minutes * 60)
+          
+          // ВАЖНО: Скрываем прогресс-бар сразу при получении metadata!
+          // (для случая кешированного вопроса, когда токены не приходят)
+          console.log('[LOAD] Hiding loading indicator after metadata.')
+          setIsLoading(false)
         },
         // onDone - генерация завершена
         (fullText, taskId) => {
