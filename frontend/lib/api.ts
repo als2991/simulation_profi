@@ -262,6 +262,10 @@ export const submitTaskAnswerStream = async (
                 console.log('[SSE SUBMIT] Calling onToken with token:', message.data.token)
                 onToken(message.data.token)
                 break
+              case 'report_token':
+                console.log('[SSE SUBMIT] Calling onToken with report token:', message.data.token)
+                onToken(message.data.token)  // Используем тот же callback для токенов отчета
+                break
               case 'done':
                 console.log('[SSE SUBMIT] Calling onDone with:', message.data)
                 onDone?.(message.data)

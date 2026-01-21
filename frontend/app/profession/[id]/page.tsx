@@ -214,12 +214,14 @@ export default function ProfessionPage() {
       
       let nextTaskMetadata: any = null
       let fullNextQuestion = ''
+      let fullReportText = ''
       let tokenCount = 0
+      let isGeneratingReport = false
       
       await submitTaskAnswerStream(
         task.id,
         answer,
-        // onToken - получаем токены следующего задания
+        // onToken - получаем токены следующего задания ИЛИ отчета
         (token) => {
           tokenCount++
           
@@ -229,18 +231,30 @@ export default function ProfessionPage() {
             setIsSubmitting(false)
           }
           
-          fullNextQuestion += token
-          console.log(`[STREAMING] Token #${tokenCount}: "${token}", total length: ${fullNextQuestion.length}`)
-          
-          // Обновляем задание с частичным текстом (как ChatGPT)
-          if (nextTaskMetadata) {
-            console.log(`[STREAMING] Updating task with question: "${fullNextQuestion.substring(0, 50)}..."`)
-            setTask({
-              ...nextTaskMetadata,
-              question: fullNextQuestion
-            })
+          if (isGeneratingReport) {
+            // Накапливаем токены отчета
+            fullReportText += token
+            console.log(`[REPORT] Token #${tokenCount}: total length: ${fullReportText.length}`)
+            setFinalReport(fullReportText)
+            // Показываем отчет сразу при первом токене
+            if (tokenCount === 1) {
+              setShowFinalReport(true)
+            }
           } else {
-            console.log('[STREAMING] Token received but metadata not ready yet')
+            // Накапливаем токены следующего задания
+            fullNextQuestion += token
+            console.log(`[STREAMING] Token #${tokenCount}: "${token}", total length: ${fullNextQuestion.length}`)
+            
+            // Обновляем задание с частичным текстом (как ChatGPT)
+            if (nextTaskMetadata) {
+              console.log(`[STREAMING] Updating task with question: "${fullNextQuestion.substring(0, 50)}..."`)
+              setTask({
+                ...nextTaskMetadata,
+                question: fullNextQuestion
+              })
+            } else {
+              console.log('[STREAMING] Token received but metadata not ready yet')
+            }
           }
         },
         // onMetadata - получаем метаданные следующего задания или отчета
@@ -248,11 +262,13 @@ export default function ProfessionPage() {
           console.log('[SUBMIT] Metadata received:', metadata)
           
           if (metadata.completed === true && metadata.generating_report) {
-            // Генерируем финальный отчет - скрываем прогресс-бар!
-            console.log('[SUBMIT] Generating final report - hiding progress bar!')
-            setIsSubmitting(false)
+            // Генерируем финальный отчет
+            console.log('[SUBMIT] Generating final report - waiting for tokens!')
+            isGeneratingReport = true
+            tokenCount = 0  // Сбрасываем счетчик для токенов отчета
             setSubmitStage('processing')
             toast('Генерируем ваш финальный отчет...', { duration: 20000, icon: '📝' })
+            // Прогресс-бар будет скрыт при первом токене отчета
           } else if (metadata.completed === false) {
             console.log('[SUBMIT] Next task metadata - keeping progress bar until first token!')
             // НЕ скрываем прогресс-бар сразу! Подождем первого токена

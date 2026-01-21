@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import User, Task, UserTask, UserProgress, Scenario, Profession, ReportTemplate
 from app.schemas import TaskResponse, UserTaskAnswer, UserTaskResponse
 from app.auth import get_current_active_user
-from app.ai_service import generate_task_question, generate_next_task_prompt, generate_final_report, generate_task_question_stream
+from app.ai_service import generate_task_question, generate_next_task_prompt, generate_final_report, generate_task_question_stream, generate_final_report_stream
 
 logger = logging.getLogger(__name__)
 
@@ -300,16 +300,26 @@ async def submit_task_answer(
                     for ut in all_user_tasks if ut.question and ut.answer
                 ]
                 
-                # Генерируем финальный отчёт (пока БЕЗ streaming для простоты)
-                final_report = generate_final_report(
+                # Генерируем финальный отчёт (STREAMING!)
+                full_report = ""
+                token_count = 0
+                for token in generate_final_report_stream(
                     system_prompt=scenario.system_prompt,
                     report_template=report_template_obj.template_text,
                     all_tasks=all_tasks
-                )
+                ):
+                    token_count += 1
+                    full_report += token
+                    token_data = {
+                        "type": "report_token",
+                        "data": {"token": token}
+                    }
+                    yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+                    await asyncio.sleep(0)  # Force flush after each token
                 
                 progress.status = "completed"
                 progress.completed_at = datetime.utcnow()
-                progress.final_report = final_report
+                progress.final_report = full_report
                 progress.conversation_history = []  # Очищаем историю после завершения
                 logger.info(f"[OPTIMIZATION] Cleared conversation_history after report generation (stream)")
                 
@@ -317,7 +327,7 @@ async def submit_task_answer(
                 
                 done_data = {
                     "type": "completed",
-                    "data": {"final_report": final_report}
+                    "data": {"final_report": full_report}
                 }
                 yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
             else:

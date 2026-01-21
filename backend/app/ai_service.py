@@ -182,13 +182,98 @@ def generate_next_task_prompt(
     return prompt
 
 
+def generate_final_report_stream(
+    system_prompt: str,
+    report_template: str,
+    all_tasks: List[Dict[str, str]]
+):
+    """
+    Генерирует финальный отчёт STREAMING на основе всех вопросов и ответов
+    
+    Args:
+        system_prompt: Системный промпт из scenarios.system_prompt
+        report_template: Шаблон отчета из report_templates.template_text
+        all_tasks: Список всех заданий и ответов [{"question": "...", "answer": "..."}]
+    
+    Yields:
+        Токены отчета от AI по мере генерации
+    """
+    try:
+        # Формируем текст с вопросами и ответами
+        qa_text = ""
+        for i, task in enumerate(all_tasks, 1):
+            qa_text += f"\nВопрос №{i}:\n{task['question']}\n\n"
+            qa_text += f"Ответ:\n{task['answer']}\n"
+            qa_text += "-" * 80 + "\n"
+        
+        # Формируем финальный промпт
+        user_prompt = f"{report_template}\n\n{qa_text}"
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        # Debug logging
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Request (STREAMING) - generate_final_report_stream")
+            logger.info(f"Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
+            logger.info("=" * 80)
+        
+        start_time = time.time()
+        start_datetime = datetime.now()
+        logger.info(f"[TIMING] OpenAI request START (STREAMING REPORT) at {start_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        
+        # Streaming request
+        stream = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=messages,
+            temperature=0.5,
+            max_completion_tokens=3000,
+            stream=True  # Включаем streaming!
+        )
+        
+        first_token_time = None
+        full_response = ""
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                token = chunk.choices[0].delta.content
+                
+                if first_token_time is None:
+                    first_token_time = time.time()
+                    logger.info(f"[TIMING] First token received at {datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+                    logger.info(f"[TIMING] Time to first token: {first_token_time - start_time:.3f} seconds")
+                
+                full_response += token
+                yield token
+        
+        end_time = time.time()
+        end_datetime = datetime.now()
+        duration = end_time - start_time
+        logger.info(f"[TIMING] OpenAI request END (STREAMING REPORT) at {end_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        logger.info(f"[TIMING] OpenAI request duration (STREAMING REPORT): {duration:.3f} seconds")
+        
+        # Debug logging
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Response (STREAMING REPORT) - generate_final_report_stream")
+            logger.info(f"Full Response: {full_response}")
+            logger.info("=" * 80)
+        
+    except Exception as e:
+        logger.error(f"Error generating final report (streaming): {e}", exc_info=True)
+        yield "К сожалению, возникла ошибка при генерации отчёта. Пожалуйста, свяжитесь с поддержкой."
+
+
 def generate_final_report(
     system_prompt: str,
     report_template: str,
     all_tasks: List[Dict[str, str]]
 ) -> str:
     """
-    Генерирует финальный отчёт на основе всех вопросов и ответов
+    Генерирует финальный отчёт на основе всех вопросов и ответов (НЕ STREAMING - для совместимости)
     
     Args:
         system_prompt: Системный промпт из scenarios.system_prompt
