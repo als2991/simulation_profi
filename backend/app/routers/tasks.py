@@ -440,19 +440,28 @@ async def submit_task_answer(
 @router.get("/profession/{profession_id}/report")
 async def get_final_report(
     profession_id: int,
+    attempt_number: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    """Получить финальный отчёт по профессии"""
-    progress = db.query(UserProgress).filter(
+    """Получить финальный отчёт по профессии (по умолчанию - последняя попытка)"""
+    query = db.query(UserProgress).filter(
         UserProgress.user_id == current_user.id,
         UserProgress.profession_id == profession_id
-    ).first()
+    )
+    
+    if attempt_number:
+        # Конкретная попытка
+        progress = query.filter(UserProgress.attempt_number == attempt_number).first()
+    else:
+        # Последняя попытка
+        progress = query.order_by(desc(UserProgress.attempt_number)).first()
     
     if not progress or progress.status != "completed":
         raise HTTPException(status_code=404, detail="Report not available")
     
     return {
         "final_report": progress.final_report,
-        "completed_at": progress.completed_at
+        "completed_at": progress.completed_at,
+        "attempt_number": progress.attempt_number
     }
