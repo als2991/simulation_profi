@@ -63,6 +63,10 @@ async def get_current_task(
     
     async def event_generator():
         try:
+            import time
+            generator_start_time = time.time()
+            logger.info(f"[STREAMING] event_generator START for user {current_user.id}, profession {profession_id}")
+            
             # Проверяем, есть ли уже закешированный вопрос в истории
             existing_question = None
             if conversation_history:
@@ -97,6 +101,8 @@ async def get_current_task(
                 return
             
             # Вопроса нет - стримим от OpenAI
+            import time
+            stream_start_time = time.time()
             logger.info(f"[STREAMING] get_current_task_stream START for user {current_user.id}, profession {profession_id}")
             
             # 1. Сразу отправляем metadata (чтобы UI мог подготовиться)
@@ -109,7 +115,9 @@ async def get_current_task(
                     "time_limit_minutes": task.time_limit_minutes
                 }
             }
+            logger.info(f"[STREAMING] Sending metadata immediately (before OpenAI)")
             yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
+            logger.info(f"[STREAMING] Metadata sent, starting OpenAI streaming...")
             
             # 2. Стримим токены от OpenAI
             full_text = ""
