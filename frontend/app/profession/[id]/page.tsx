@@ -136,19 +136,23 @@ export default function ProfessionPage() {
           setTask(taskMetadata)
           setTimeLeft(metadata.time_limit_minutes * 60)
           
-          // ВАЖНО: Скрываем прогресс-бар сразу при получении metadata!
-          // (для случая кешированного вопроса, когда токены не приходят)
-          console.log('[LOAD] Hiding loading indicator after metadata.')
-          setIsLoading(false)
+          // НЕ скрываем прогресс-бар здесь!
+          // Будет скрыт при первом токене (onToken)
+          // Или при done (для кешированных вопросов)
+          console.log('[LOAD] Metadata processed, waiting for tokens...')
         },
         // onDone - генерация завершена
         (fullText, taskId) => {
+          console.log('[LOAD] Done received, hiding loading indicator')
+          setIsLoading(false) // Скрываем прогресс-бар (для кешированных вопросов)
+          
           if (taskMetadata) {
             setTask({
               ...taskMetadata,
               question: fullText
             })
           }
+          toast.success('Задание загружено!')
         },
         // onError
         (error) => {
@@ -218,6 +222,13 @@ export default function ProfessionPage() {
         // onToken - получаем токены следующего задания
         (token) => {
           tokenCount++
+          
+          // При первом токене СКРЫВАЕМ прогресс-бар!
+          if (tokenCount === 1) {
+            console.log('[SUBMIT] First token received - hiding progress bar!')
+            setIsSubmitting(false)
+          }
+          
           fullNextQuestion += token
           console.log(`[STREAMING] Token #${tokenCount}: "${token}", total length: ${fullNextQuestion.length}`)
           
@@ -237,15 +248,13 @@ export default function ProfessionPage() {
           console.log('[SUBMIT] Metadata received:', metadata)
           
           if (metadata.completed === true && metadata.generating_report) {
-            // Генерируем финальный отчет
-            console.log('[SUBMIT] Generating final report - hiding progress bar!')
-            setIsSubmitting(false)
+            // Генерируем финальный отчет - НЕ скрываем прогресс-бар!
+            console.log('[SUBMIT] Generating final report - keeping progress bar visible!')
             setSubmitStage('processing')
-            toast.success('Генерируем ваш отчет...')
+            // Прогресс-бар будет скрыт при получении отчета (onCompleted)
           } else if (metadata.completed === false) {
-            console.log('[SUBMIT] Setting isSubmitting to false - hiding progress bar!')
-            // СРАЗУ убираем прогресс-бар при получении метаданных!
-            setIsSubmitting(false)
+            console.log('[SUBMIT] Next task metadata - keeping progress bar until first token!')
+            // НЕ скрываем прогресс-бар сразу! Подождем первого токена
             
             setSubmitStage('processing')
             nextTaskMetadata = {
