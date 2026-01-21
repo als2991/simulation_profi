@@ -203,34 +203,24 @@ export default function ProfessionPage() {
       
       let nextTaskMetadata: any = null
       let fullNextQuestion = ''
-      let tokenCount = 0
       
       await submitTaskAnswerStream(
         task.id,
         answer,
         // onToken - получаем токены следующего задания
         (token) => {
-          tokenCount++
           fullNextQuestion += token
-          console.log(`[STREAMING] Token #${tokenCount}: "${token}", total length: ${fullNextQuestion.length}`)
-          
           // Обновляем задание с частичным текстом (как ChatGPT)
           if (nextTaskMetadata) {
-            console.log(`[STREAMING] Updating task with question: "${fullNextQuestion.substring(0, 50)}..."`)
             setTask({
               ...nextTaskMetadata,
               question: fullNextQuestion
             })
-          } else {
-            console.log('[STREAMING] Token received but metadata not ready yet')
           }
         },
         // onMetadata - получаем метаданные следующего задания
         (metadata) => {
-          console.log('[STREAMING] Metadata received:', metadata)
-          
           if (metadata.completed === false) {
-            console.log('[STREAMING] Setting isSubmitting to false')
             // СРАЗУ убираем прогресс-бар при получении метаданных!
             setIsSubmitting(false)
             
@@ -242,7 +232,6 @@ export default function ProfessionPage() {
               time_limit_minutes: metadata.time_limit_minutes,
               question: '' // Пустой вопрос - будет заполняться токенами
             }
-            console.log('[STREAMING] Setting initial task with empty question')
             setTask(nextTaskMetadata)
             setAnswer('')
             setTimeLeft(metadata.time_limit_minutes * 60)
