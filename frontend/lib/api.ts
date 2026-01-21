@@ -131,7 +131,7 @@ export const getCurrentTaskStream = async (
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   
   const response = await fetch(
-    `${API_URL}/api/tasks/profession/${professionId}/current/stream`,
+    `${API_URL}/api/tasks/profession/${professionId}/current`,
     {
       method: 'GET',
       headers: {
@@ -209,7 +209,7 @@ export const submitTaskAnswerStream = async (
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
   const response = await fetch(
-    `${API_URL}/api/tasks/${taskId}/submit/stream`,
+    `${API_URL}/api/tasks/${taskId}/submit`,
     {
       method: 'POST',
       headers: {
