@@ -372,6 +372,7 @@ async def submit_task_answer(
                             "data": {"token": token}
                         }
                         yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+                        await asyncio.sleep(0)  # Force flush after each token
                     
                     # Сохраняем вопрос AI в истории
                     conversation_history.append({
