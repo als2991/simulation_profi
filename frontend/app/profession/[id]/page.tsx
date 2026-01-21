@@ -110,6 +110,7 @@ export default function ProfessionPage() {
           // При первом токене СРАЗУ скрываем прогресс-бар и показываем UI!
           if (!firstTokenReceived) {
             firstTokenReceived = true
+            console.log('[LOAD] First token received! Hiding loading indicator.')
             setIsLoading(false) // ← Убираем прогресс-бар сразу!
           }
           
@@ -124,6 +125,7 @@ export default function ProfessionPage() {
         },
         // onMetadata - получаем метаданные задания
         (metadata) => {
+          console.log('[LOAD] Metadata received:', metadata)
           taskMetadata = {
             id: metadata.id,
             order: metadata.order,
@@ -227,10 +229,10 @@ export default function ProfessionPage() {
         },
         // onMetadata - получаем метаданные следующего задания
         (metadata) => {
-          console.log('[STREAMING] Metadata received:', metadata)
+          console.log('[SUBMIT] Metadata received:', metadata)
           
           if (metadata.completed === false) {
-            console.log('[STREAMING] Setting isSubmitting to false')
+            console.log('[SUBMIT] Setting isSubmitting to false - hiding progress bar!')
             // СРАЗУ убираем прогресс-бар при получении метаданных!
             setIsSubmitting(false)
             
