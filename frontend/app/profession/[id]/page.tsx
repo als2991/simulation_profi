@@ -248,10 +248,11 @@ export default function ProfessionPage() {
           console.log('[SUBMIT] Metadata received:', metadata)
           
           if (metadata.completed === true && metadata.generating_report) {
-            // Генерируем финальный отчет - НЕ скрываем прогресс-бар!
-            console.log('[SUBMIT] Generating final report - keeping progress bar visible!')
+            // Генерируем финальный отчет - скрываем прогресс-бар!
+            console.log('[SUBMIT] Generating final report - hiding progress bar!')
+            setIsSubmitting(false)
             setSubmitStage('processing')
-            // Прогресс-бар будет скрыт при получении отчета (onCompleted)
+            toast('Генерируем ваш финальный отчет...', { duration: 20000, icon: '📝' })
           } else if (metadata.completed === false) {
             console.log('[SUBMIT] Next task metadata - keeping progress bar until first token!')
             // НЕ скрываем прогресс-бар сразу! Подождем первого токена

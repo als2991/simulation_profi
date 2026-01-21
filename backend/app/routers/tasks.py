@@ -132,6 +132,7 @@ async def get_current_task(
                     "data": {"token": token}
                 }
                 yield f"data: {json.dumps(token_data, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0)  # Force flush after each token
             
             # 3. Сохраняем полный вопрос в историю
             conversation_history.append({
