@@ -8,11 +8,13 @@ import { getProfessions, getUserProgress } from '@/lib/api'
 import toast from 'react-hot-toast'
 
 const MAX_ATTEMPTS = 3 // Максимальное количество попыток
+const ALL_CATEGORIES_VALUE = 'all'
 
 interface Profession {
   id: number
   name: string
   description: string
+  category?: string | null
   price: number
 }
 
@@ -29,6 +31,7 @@ export default function DashboardPage() {
   const [professions, setProfessions] = useState<Profession[]>([])
   const [progress, setProgress] = useState<Progress[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<string>(ALL_CATEGORIES_VALUE)
 
   // Инициализируем токен из storage при загрузке страницы
   useEffect(() => {
@@ -65,13 +68,34 @@ export default function DashboardPage() {
     }
   }
 
+  const normalizeCategory = (category: string | null | undefined) => {
+    const trimmed = category?.trim()
+    return trimmed ? trimmed : null
+  }
+
+  const isNonEmptyString = (value: unknown): value is string =>
+    typeof value === 'string' && value.trim().length > 0
+
+  const categories = Array.from(
+    new Set(professions.map((p: Profession) => normalizeCategory(p.category)))
+  )
+    .filter(isNonEmptyString)
+    .sort((a: string, b: string) => a.localeCompare(b, 'ru'))
+
+  const filteredProfessions =
+    selectedCategory === ALL_CATEGORIES_VALUE
+      ? professions
+      : professions.filter(
+          (p: Profession) => normalizeCategory(p.category) === selectedCategory
+        )
+
   const getProgressStatus = (professionId: number) => {
     // Находим ВСЕ попытки этой профессии
-    const attempts = progress.filter((p) => p.profession_id === professionId)
+    const attempts = progress.filter((p: Progress) => p.profession_id === professionId)
     if (attempts.length === 0) return 'not_started'
     
     // Находим последнюю попытку (с максимальным attempt_number)
-    const lastAttempt = attempts.reduce((max, curr) => 
+    const lastAttempt = attempts.reduce((max: Progress, curr: Progress) => 
       curr.attempt_number > max.attempt_number ? curr : max
     )
     
@@ -80,11 +104,11 @@ export default function DashboardPage() {
 
   const getAttemptNumber = (professionId: number) => {
     // Находим ВСЕ попытки этой профессии
-    const attempts = progress.filter((p) => p.profession_id === professionId)
+    const attempts = progress.filter((p: Progress) => p.profession_id === professionId)
     if (attempts.length === 0) return 0
     
     // Возвращаем максимальный attempt_number (последняя попытка)
-    return Math.max(...attempts.map((a) => a.attempt_number))
+    return Math.max(...attempts.map((a: Progress) => a.attempt_number))
   }
 
   const getStatusText = (status: string) => {
@@ -148,10 +172,45 @@ export default function DashboardPage() {
           <p className="mt-2 text-gray-600">
             Выберите профессию для прохождения симуляции
           </p>
+
+          {categories.length > 0 && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label
+                htmlFor="categoryFilter"
+                className="text-sm font-medium text-gray-700"
+              >
+                Категория
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select
+                  id="categoryFilter"
+                  value={selectedCategory}
+                  onChange={(e: any) => setSelectedCategory(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary-600 focus:outline-none focus:ring-1 focus:ring-primary-600 sm:w-80"
+                >
+                  <option value={ALL_CATEGORIES_VALUE}>Все категории</option>
+                  {categories.map((category: string) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                {selectedCategory !== ALL_CATEGORIES_VALUE && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory(ALL_CATEGORIES_VALUE)}
+                    className="rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Сбросить
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {professions.map((profession) => {
+          {filteredProfessions.map((profession: Profession) => {
             const status = getProgressStatus(profession.id)
             const attemptNum = getAttemptNumber(profession.id)
             return (
@@ -197,9 +256,13 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {professions.length === 0 && (
+        {filteredProfessions.length === 0 && (
           <div className="rounded-lg bg-white p-8 text-center shadow-sm">
-            <p className="text-gray-600">Профессии пока не доступны</p>
+            <p className="text-gray-600">
+              {selectedCategory === ALL_CATEGORIES_VALUE
+                ? 'Профессии пока не доступны'
+                : 'По выбранной категории профессий не найдено'}
+            </p>
           </div>
         )}
       </main>
