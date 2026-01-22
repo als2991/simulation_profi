@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-5.2"
-    DEBUG_OPENAI_PROMPTS: bool = False
+    DEBUG_OPENAI_PROMPTS: bool = True
     
     # Limits
     MAX_PROFESSION_ATTEMPTS: int = 3
