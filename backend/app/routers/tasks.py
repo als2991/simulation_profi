@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, flag_modified
 from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
@@ -137,6 +137,8 @@ async def get_current_task(
                 "content": full_text
             })
             progress.conversation_history = conversation_history
+            # Явно помечаем JSON поле как измененное для SQLAlchemy
+            flag_modified(progress, 'conversation_history')
             db.commit()
             
             # 4. Отправляем завершающий сигнал
@@ -250,6 +252,8 @@ async def submit_task_answer(
             
             # ВАЖНО: Коммитим СРАЗУ, чтобы сохранить UserTask и ответ пользователя
             # Даже если генерация следующего вопроса прервется, данные будут в БД
+            # Явно помечаем JSON поле как измененное для SQLAlchemy
+            flag_modified(progress, 'conversation_history')
             db.commit()
             
             # Проверяем, есть ли еще задания
@@ -311,6 +315,8 @@ async def submit_task_answer(
                 progress.completed_at = datetime.utcnow()
                 progress.final_report = full_report
                 progress.conversation_history = []  # Очищаем историю после завершения
+                # Явно помечаем JSON поле как измененное для SQLAlchemy
+                flag_modified(progress, 'conversation_history')
                 
                 db.commit()
                 
@@ -379,6 +385,8 @@ async def submit_task_answer(
                     })
                     
                     progress.conversation_history = conversation_history
+                    # Явно помечаем JSON поле как измененное для SQLAlchemy
+                    flag_modified(progress, 'conversation_history')
                     db.commit()
                     
                     done_data = {
