@@ -38,6 +38,13 @@ def generate_task_question(
             "content": task_description
         })
         
+        # Debug logging
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Request - generate_task_question")
+            logger.info(f"Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
+            logger.info("=" * 80)
+
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=messages,
@@ -46,6 +53,14 @@ def generate_task_question(
         )
         
         ai_response = response.choices[0].message.content
+        
+        # Debug logging
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Response - generate_task_question")
+            logger.info(f"Response: {ai_response}")
+            logger.info("=" * 80)
+        
         return ai_response
         
     except Exception as e:

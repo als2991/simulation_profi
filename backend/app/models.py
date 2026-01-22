@@ -168,13 +168,3 @@ class ReportTemplate(Base):
     template_text = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-
-class Event(Base):
-    __tablename__ = "events"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    event_type = Column(String, nullable=False)  # task_started, task_completed, payment_completed, etc.
-    event_metadata = Column(JSON)  # Переименовано из metadata, т.к. metadata зарезервировано в SQLAlchemy
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
