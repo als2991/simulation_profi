@@ -391,16 +391,16 @@ export default function ProfessionPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="flex justify-center gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-center sm:gap-4">
                   <button
                     onClick={handleRestart}
-                    className="rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700"
+                    className="inline-flex w-full items-center justify-center rounded-md bg-primary-600 px-6 py-3 text-white hover:bg-primary-700 sm:w-64"
                   >
                     Пройти заново
                   </button>
                   <Link
                     href="/dashboard"
-                    className="rounded-md bg-gray-200 px-6 py-3 text-gray-700 hover:bg-gray-300"
+                    className="inline-flex w-full items-center justify-center rounded-md bg-gray-200 px-6 py-3 text-gray-700 hover:bg-gray-300 sm:w-64"
                   >
                     Вернуться к профессиям
                   </Link>
