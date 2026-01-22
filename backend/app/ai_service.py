@@ -2,6 +2,7 @@ from openai import OpenAI
 from app.config import settings
 from typing import List, Dict
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -102,20 +103,58 @@ def generate_task_question_stream(
             "role": "user",
             "content": task_description
         })
-        
+
+        model = settings.OPENAI_MODEL
+        temperature = 0.7
+        max_completion_tokens = 1500
+
+        # Debug logging (request)
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Request - generate_task_question_stream")
+            logger.info(
+                "Params: %s",
+                json.dumps(
+                    {
+                        "model": model,
+                        "temperature": temperature,
+                        "max_completion_tokens": max_completion_tokens,
+                        "stream": True,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            logger.info("Messages: %s", json.dumps(messages, ensure_ascii=False, indent=2))
+            logger.info("=" * 80)
+
         # Streaming request
         stream = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=model,
             messages=messages,
-            temperature=0.7,
-            max_completion_tokens=1500,
-            stream=True
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+            stream=True,
         )
-        
+
+        full_text_parts: List[str] = []
         for chunk in stream:
-            if chunk.choices[0].delta.content:
+            token = None
+            try:
                 token = chunk.choices[0].delta.content
+            except Exception:
+                token = None
+
+            if token:
+                full_text_parts.append(token)
                 yield token
+
+        # Debug logging (response)
+        if settings.DEBUG_OPENAI_PROMPTS:
+            full_text = "".join(full_text_parts)
+            logger.info("=" * 80)
+            logger.info("OpenAI Response - generate_task_question_stream")
+            logger.info("Response: %s", full_text)
+            logger.info("=" * 80)
         
     except Exception as e:
         logger.error(f"Error generating task question (streaming): {e}", exc_info=True)
@@ -176,20 +215,58 @@ def generate_final_report_stream(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ]
-        
+
+        model = settings.OPENAI_MODEL
+        temperature = 0.5
+        max_completion_tokens = 3000
+
+        # Debug logging (request)
+        if settings.DEBUG_OPENAI_PROMPTS:
+            logger.info("=" * 80)
+            logger.info("OpenAI Request - generate_final_report_stream")
+            logger.info(
+                "Params: %s",
+                json.dumps(
+                    {
+                        "model": model,
+                        "temperature": temperature,
+                        "max_completion_tokens": max_completion_tokens,
+                        "stream": True,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+            logger.info("Messages: %s", json.dumps(messages, ensure_ascii=False, indent=2))
+            logger.info("=" * 80)
+
         # Streaming request
         stream = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=model,
             messages=messages,
-            temperature=0.5,
-            max_completion_tokens=3000,
-            stream=True
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+            stream=True,
         )
-        
+
+        full_text_parts: List[str] = []
         for chunk in stream:
-            if chunk.choices[0].delta.content:
+            token = None
+            try:
                 token = chunk.choices[0].delta.content
+            except Exception:
+                token = None
+
+            if token:
+                full_text_parts.append(token)
                 yield token
+
+        # Debug logging (response)
+        if settings.DEBUG_OPENAI_PROMPTS:
+            full_text = "".join(full_text_parts)
+            logger.info("=" * 80)
+            logger.info("OpenAI Response - generate_final_report_stream")
+            logger.info("Response: %s", full_text)
+            logger.info("=" * 80)
         
     except Exception as e:
         logger.error(f"Error generating final report (streaming): {e}", exc_info=True)

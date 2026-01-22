@@ -4,16 +4,16 @@ from fastapi.security import HTTPBearer
 from contextlib import asynccontextmanager
 import logging
 
+# Настройка логирования (должна быть как можно раньше, до импортов app.*)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 from app.database import engine, Base
 from app.routers import auth, professions, tasks, admin, payments, users
 from app.config import settings
-
-# Настройка логирования
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -22,6 +22,7 @@ security = HTTPBearer()
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting application...")
+    logger.info("DEBUG_OPENAI_PROMPTS=%s", settings.DEBUG_OPENAI_PROMPTS)
     
     # Валидация критических переменных окружения
     if not settings.OPENAI_API_KEY or settings.OPENAI_API_KEY == "":
