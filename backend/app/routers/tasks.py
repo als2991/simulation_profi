@@ -66,13 +66,18 @@ async def get_current_task(
             import asyncio
             
             # Проверяем, есть ли уже закешированный вопрос в истории
+            # Нужно найти вопрос, соответствующий task.order (1-indexed)
             existing_question = None
             if conversation_history:
-                # Последний ассистент ответ - это наш текущий вопрос
-                for msg in reversed(conversation_history):
-                    if msg.get("role") == "assistant":
-                        existing_question = msg.get("content")
-                        break
+                # Собираем все assistant messages по порядку
+                assistant_messages = [
+                    msg.get("content")
+                    for msg in conversation_history
+                    if msg.get("role") == "assistant" and msg.get("content")
+                ]
+                # Для task с order=1 берем assistant_messages[0], для order=2 → [1], и т.д.
+                if len(assistant_messages) >= task.order:
+                    existing_question = assistant_messages[task.order - 1]
             
             if existing_question:
                 # Вопрос уже есть в кеше - отправляем сразу
@@ -242,6 +247,10 @@ async def submit_task_answer(
             # Обновляем прогресс
             progress.current_task_order = task.order
             progress.conversation_history = conversation_history
+            
+            # ВАЖНО: Коммитим СРАЗУ, чтобы сохранить UserTask и ответ пользователя
+            # Даже если генерация следующего вопроса прервется, данные будут в БД
+            db.commit()
             
             # Проверяем, есть ли еще задания
             total_tasks = db.query(Task).filter(Task.scenario_id == scenario.id).count()
