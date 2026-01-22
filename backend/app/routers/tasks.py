@@ -43,6 +43,14 @@ async def get_current_task(
         )
         db.add(progress)
         db.commit()
+    else:
+        # Если прогресс был создан заранее (например, после оплаты) как not_started,
+        # то первый запрос за задачей является фактическим "стартом" симуляции.
+        if progress.status == "not_started":
+            progress.status = "in_progress"
+            if not progress.started_at:
+                progress.started_at = datetime.utcnow()
+            db.commit()
     
     # Получаем сценарий профессии
     scenario = db.query(Scenario).filter(Scenario.profession_id == profession_id).first()
