@@ -68,25 +68,28 @@ export default function DashboardPage() {
     }
   }
 
-  const normalizeCategory = (category: string | null | undefined) => {
-    const trimmed = category?.trim()
-    return trimmed ? trimmed : null
+  const splitCategories = (category: string | null | undefined): string[] => {
+    if (!category) return []
+    return category
+      .split(',')
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0)
   }
 
-  const isNonEmptyString = (value: unknown): value is string =>
-    typeof value === 'string' && value.trim().length > 0
+  const categoriesSet = new Set<string>()
+  professions.forEach((p: Profession) => {
+    splitCategories(p.category).forEach((c) => categoriesSet.add(c))
+  })
 
-  const categories = Array.from(
-    new Set(professions.map((p: Profession) => normalizeCategory(p.category)))
+  const categories: string[] = Array.from(categoriesSet).sort((a, b) =>
+    a.localeCompare(b, 'ru')
   )
-    .filter(isNonEmptyString)
-    .sort((a: string, b: string) => a.localeCompare(b, 'ru'))
 
   const filteredProfessions =
     selectedCategory === ALL_CATEGORIES_VALUE
       ? professions
       : professions.filter(
-          (p: Profession) => normalizeCategory(p.category) === selectedCategory
+          (p: Profession) => splitCategories(p.category).includes(selectedCategory)
         )
 
   const getProgressStatus = (professionId: number) => {
